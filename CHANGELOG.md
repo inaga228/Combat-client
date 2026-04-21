@@ -1,16 +1,24 @@
 # Changelog
 
+## [1.2.0]
+### Added
+- **Criticals** — порт с Meteor Client. Режимы: Packet, Jump, MiniJump, None. Интегрирован в KillAura — автоматически бьёт критами.
+- **AutoTotem** — порт с Meteor Client. Режимы: Smart (по условиям HP/Elytra/Fall) и Strict (всегда). Настройки: Health, Delay, Elytra, Fall.
+
+### Changed
+- **ClickGUI** полностью переписан:
+  - Анимация появления: панели плавно «падают» сверху
+  - Анимированный collapse/expand (интерполяция высоты)
+  - GL Scissor — контент обрезается по границе панели
+  - Скролл колёсиком в панелях и в окне настроек
+  - Полоска скролла с ручкой
+  - Окно настроек не выходит за экран
+
 ## [1.1.0]
 ### Changed
-- Оставлены только два модуля: **KillAura** и **FastPlace**
-- KillAura полностью переписана: плавное наведение (Smooth Rotation), GCD-коррекция, рандомизированный CPS с джиттером, multi-point raytrace, автосвап оружия
-- **ClickGUI** — новый тёмный дизайн: акцентные полосы, плавный градиентный фон, индикаторы слайдеров с ручкой, collapse-стрелки, строки разделителей
+- Оставлены только KillAura (улучшенная) и FastPlace
+- KillAura переписана: плавное наведение, GCD, рандомизированный CPS, raytrace, автосвап
 
 ## [1.0.0]
 ### Added
-- Initial release of Combat Client for Forge 1.16.5
-- Combat: KillAura, Reach, AntiKnockback, AutoCrystal, Velocity
-- Renderer: ESP, Trajectories, Chams, FullBright, NoWeather
-- HUD: HUD, ArmorHUD, PotionHUD, Notifications
-- Player: NoFall, FastPlace, AutoEat, Sprint, AntiVoid
-- ClickGUI — Right Shift
+- Initial release
