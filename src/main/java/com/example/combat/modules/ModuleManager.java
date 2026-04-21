@@ -5,6 +5,8 @@ import com.example.combat.modules.combat.Criticals;
 import com.example.combat.modules.combat.KillAura;
 import com.example.combat.modules.hud.Notifications;
 import com.example.combat.modules.player.FastPlace;
+import com.example.combat.modules.renderer.BetterTab;
+import com.example.combat.modules.renderer.HandView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,10 +16,16 @@ public class ModuleManager {
     private final List<Module> modules = new ArrayList<>();
 
     public ModuleManager() {
+        // Combat
         register(new KillAura());
         register(new Criticals());
         register(new AutoTotem());
+        // Player
         register(new FastPlace());
+        // Renderer
+        register(new BetterTab());
+        register(new HandView());
+        // HUD
         register(new Notifications());
     }
 

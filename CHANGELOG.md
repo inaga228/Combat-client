@@ -1,24 +1,21 @@
 # Changelog
 
+## [1.3.0]
+### Added
+- **BetterTab** (Renderer) — порт с Meteor Client. Подсветка себя в таб-листе своим цветом (R/G/B), отображение геймода рядом с ником, настройка размера таб-листа и высоты колонки.
+- **HandView** (Renderer) — порт с Meteor Client. Позиция/поворот/масштаб главной руки и оффхенда через RenderHandEvent. SwingMode (None/Offhand/Mainhand), SwingSpeed, OldAnims.
+
 ## [1.2.0]
 ### Added
-- **Criticals** — порт с Meteor Client. Режимы: Packet, Jump, MiniJump, None. Интегрирован в KillAura — автоматически бьёт критами.
-- **AutoTotem** — порт с Meteor Client. Режимы: Smart (по условиям HP/Elytra/Fall) и Strict (всегда). Настройки: Health, Delay, Elytra, Fall.
-
+- **Criticals** — порт с Meteor Client. Режимы: Packet, Jump, MiniJump, None.
+- **AutoTotem** — порт с Meteor Client. Режимы: Smart и Strict.
 ### Changed
-- **ClickGUI** полностью переписан:
-  - Анимация появления: панели плавно «падают» сверху
-  - Анимированный collapse/expand (интерполяция высоты)
-  - GL Scissor — контент обрезается по границе панели
-  - Скролл колёсиком в панелях и в окне настроек
-  - Полоска скролла с ручкой
-  - Окно настроек не выходит за экран
+- **ClickGUI** — анимации, GL Scissor, скролл колёсиком, полоска скролла.
 
 ## [1.1.0]
 ### Changed
-- Оставлены только KillAura (улучшенная) и FastPlace
-- KillAura переписана: плавное наведение, GCD, рандомизированный CPS, raytrace, автосвап
+- Оставлены только KillAura (улучшенная) и FastPlace.
 
 ## [1.0.0]
 ### Added
-- Initial release
+- Initial release.
