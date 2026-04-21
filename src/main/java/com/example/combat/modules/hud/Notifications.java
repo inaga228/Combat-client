@@ -12,7 +12,22 @@ import java.util.Queue;
 
 public class Notifications extends Module {
 
-    public record Notif(String text, long expiry, int color) {}
+    // Plain class instead of Java 16 record
+    public static class Notif {
+        private final String text;
+        private final long   expiry;
+        private final int    color;
+
+        public Notif(String text, long expiry, int color) {
+            this.text   = text;
+            this.expiry = expiry;
+            this.color  = color;
+        }
+
+        public String getText()  { return text; }
+        public long   getExpiry(){ return expiry; }
+        public int    getColor() { return color; }
+    }
 
     private static final Queue<Notif> queue = new LinkedList<>();
 
@@ -34,14 +49,18 @@ public class Notifications extends Module {
         if (event.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
 
         long now = System.currentTimeMillis();
-        queue.removeIf(n -> now > n.expiry());
+        Iterator<Notif> it = queue.iterator();
+        while (it.hasNext()) {
+            if (now > it.next().getExpiry()) it.remove();
+        }
 
-        MatrixStack ms = event.getMatrixStack();
+        MatrixStack ms  = event.getMatrixStack();
         FontRenderer fr = mc.fontRenderer;
         int sw = mc.getMainWindow().getScaledWidth();
-        int i = 0;
+        int i  = 0;
         for (Notif n : queue) {
-            fr.drawStringWithShadow(ms, n.text(), sw - fr.getStringWidth(n.text()) - 4, 4 + i * 12, n.color());
+            fr.drawStringWithShadow(ms, n.getText(),
+                sw - fr.getStringWidth(n.getText()) - 4, 4 + i * 12, n.getColor());
             i++;
         }
     }
