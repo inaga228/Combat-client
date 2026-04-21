@@ -1,9 +1,8 @@
 package com.example.combat.modules;
 
-import com.example.combat.modules.combat.*;
-import com.example.combat.modules.renderer.*;
-import com.example.combat.modules.hud.*;
-import com.example.combat.modules.player.*;
+import com.example.combat.modules.combat.KillAura;
+import com.example.combat.modules.hud.Notifications;
+import com.example.combat.modules.player.FastPlace;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,37 +12,12 @@ public class ModuleManager {
     private final List<Module> modules = new ArrayList<>();
 
     public ModuleManager() {
-        // Combat
         register(new KillAura());
-        register(new Reach());
-        register(new AntiKnockback());
-        register(new AutoCrystal());
-        register(new Velocity());
-
-        // Renderer
-        register(new ESP());
-        register(new Trajectories());
-        register(new Chams());
-        register(new FullBright());
-        register(new NoWeather());
-
-        // HUD
-        register(new HUDModule());
-        register(new ArmorHUD());
-        register(new PotionHUD());
-        register(new Notifications());
-
-        // Player
-        register(new NoFall());
         register(new FastPlace());
-        register(new AutoEat());
-        register(new Sprint());
-        register(new AntiVoid());
+        register(new Notifications());
     }
 
-    private void register(Module m) {
-        modules.add(m);
-    }
+    private void register(Module m) { modules.add(m); }
 
     public List<Module> getModules() { return modules; }
 

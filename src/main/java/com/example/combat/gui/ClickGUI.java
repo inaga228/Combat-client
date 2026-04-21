@@ -4,275 +4,366 @@ import com.example.combat.CombatClient;
 import com.example.combat.modules.Module;
 import com.example.combat.modules.Setting;
 import com.mojang.blaze3d.matrix.MatrixStack;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.text.StringTextComponent;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * ClickGUI — Left-click: toggle. Right-click: settings. Drag panel header to move.
+ * ClickGUI — современный тёмный дизайн.
+ * Left-click: toggle | Right-click: open settings | Drag header: move panel
  */
 public class ClickGUI extends Screen {
+
+    // ── Цветовая палитра ────────────────────────────────────────────
+    private static final int C_BG        = 0xF0101018; // фон панели
+    private static final int C_HEADER    = 0xFF1A1A2A; // шапка категории
+    private static final int C_ACCENT    = 0xFF5B5BFF; // акцент (фиолетово-синий)
+    private static final int C_ACCENT2   = 0xFF8A2BE2; // акцент2 (фиолет)
+    private static final int C_ON        = 0xFF3A3A6A; // фон включённого модуля
+    private static final int C_HOVER     = 0x22FFFFFF;
+    private static final int C_TEXT      = 0xFFE0E0FF;
+    private static final int C_SUBTEXT   = 0xFF888899;
+    private static final int C_SETTINGS  = 0xF2141422;
+    private static final int C_SETTINGS_H= 0xFF1C1C30;
+    private static final int C_SLIDER_BG = 0xFF222233;
+    private static final int C_SLIDER_FG = 0xFF5B5BFF;
+
+    // ── Размеры ──────────────────────────────────────────────────────
+    private static final int PW      = 110; // ширина панели
+    private static final int HDRH    = 16;  // высота шапки
+    private static final int ROWH    = 13;  // высота строки модуля
+    private static final int SW      = 140; // ширина окна настроек
+    private static final int SROW    = 16;  // высота строки настройки
+    private static final int SBIND   = 14;  // высота строки бинда
 
     private static class Panel {
         Module.Category cat;
         int x, y;
         boolean collapsed = false;
         boolean dragging  = false;
-        int dragOffX, dragOffY;
-
-        static final int W        = 100;
-        static final int HEADER_H = 12;
-        static final int ROW_H    = 11;
-
-        Panel(Module.Category cat, int x, int y) {
-            this.cat = cat; this.x = x; this.y = y;
-        }
+        int dox, doy;
+        Panel(Module.Category cat, int x, int y) { this.cat=cat; this.x=x; this.y=y; }
     }
-
-    private Module settingsTarget    = null;
-    private int    settingsX         = 0, settingsY = 0;
-    private boolean settingsDragging = false;
-    private int    settingsDragOffX, settingsDragOffY;
-    private boolean waitingForBind   = false;
 
     private final List<Panel> panels = new ArrayList<>();
+    private Module  settingsMod  = null;
+    private int     sx, sy;
+    private boolean sDrag        = false;
+    private int     sdox, sdoy;
+    private boolean waitBind     = false;
+    private int     dragSliderIdx= -1; // индекс ползунка который тащим
 
     public ClickGUI() {
-        super(new StringTextComponent("CombatClient"));
-        int x = 4;
+        super(new StringTextComponent(""));
+        int x = 6;
         for (Module.Category cat : Module.Category.values()) {
-            panels.add(new Panel(cat, x, 4));
-            x += Panel.W + 4;
-        }
-    }
-
-    @Override
-    public boolean isPauseScreen() { return false; }
-
-    @Override
-    public void render(MatrixStack ms, int mouseX, int mouseY, float partial) {
-        fill(ms, 0, 0, width, height, 0x88000000);
-        for (Panel p : panels) renderPanel(ms, p, mouseX, mouseY);
-        if (settingsTarget != null) renderSettings(ms, mouseX, mouseY);
-        super.render(ms, mouseX, mouseY, partial);
-    }
-
-    private void renderPanel(MatrixStack ms, Panel p, int mx, int my) {
-        List<Module> mods = CombatClient.moduleManager.getByCategory(p.cat);
-        int totalH = Panel.HEADER_H + (p.collapsed ? 0 : mods.size() * Panel.ROW_H);
-
-        fill(ms, p.x, p.y, p.x + Panel.W, p.y + totalH, 0xCC1A1A2E);
-        fill(ms, p.x, p.y, p.x + Panel.W, p.y + Panel.HEADER_H, 0xFF16213E);
-        font.drawString(ms, p.cat.name(), p.x + 3, p.y + 2, 0x00FFAA);
-
-        if (!p.collapsed) {
-            for (int i = 0; i < mods.size(); i++) {
-                Module m = mods.get(i);
-                int ry = p.y + Panel.HEADER_H + i * Panel.ROW_H;
-                boolean hover = mx >= p.x && mx < p.x + Panel.W && my >= ry && my < ry + Panel.ROW_H;
-                int bg = m.isEnabled() ? 0xCC0F3460 : (hover ? 0x44FFFFFF : 0x00000000);
-                fill(ms, p.x, ry, p.x + Panel.W, ry + Panel.ROW_H, bg);
-                int nameColor = m.isEnabled() ? 0xFFFFFF : 0xAAAAAA;
-                font.drawString(ms, m.getName(), p.x + 3, ry + 2, nameColor);
-                if (m.getKeyBind() != GLFW.GLFW_KEY_UNKNOWN) {
-                    String kb = "[" + m.getKeyName() + "]";
-                    int kbW = font.getStringWidth(kb);
-                    font.drawString(ms, kb, p.x + Panel.W - kbW - 2, ry + 2, 0x666666);
-                }
+            if (!CombatClient.moduleManager.getByCategory(cat).isEmpty()) {
+                panels.add(new Panel(cat, x, 6));
+                x += PW + 5;
             }
         }
     }
 
-    private void renderSettings(MatrixStack ms, int mx, int my) {
-        List<Setting<?>> settings = getSettings(settingsTarget);
-        int sw = 120;
-        int sh = 14 + settings.size() * 14 + 14;
+    @Override public boolean isPauseScreen() { return false; }
 
-        fill(ms, settingsX, settingsY, settingsX + sw, settingsY + sh, 0xEE0D1B2A);
-        fill(ms, settingsX, settingsY, settingsX + sw, settingsY + 13, 0xFF1B2838);
-        font.drawString(ms, "\u00a7b" + settingsTarget.getName(), settingsX + 3, settingsY + 3, 0xFFFFFF);
+    // ════════════════════════════════════════════════════════════════
+    //  RENDER
+    // ════════════════════════════════════════════════════════════════
+    @Override
+    public void render(MatrixStack ms, int mx, int my, float pt) {
+        // Полупрозрачный затемнённый фон
+        fillGradientV(ms, 0, 0, width, height, 0xAA000010, 0xAA100020);
+
+        for (Panel p : panels) renderPanel(ms, p, mx, my);
+        if (settingsMod != null) renderSettings(ms, mx, my);
+        // Не вызываем super — убираем стандартный фон
+    }
+
+    private void renderPanel(MatrixStack ms, Panel p, int mx, int my) {
+        List<Module> mods = CombatClient.moduleManager.getByCategory(p.cat);
+        int totalH = HDRH + (p.collapsed ? 0 : mods.size() * ROWH);
+
+        // Тень под панелью
+        fillRect(ms, p.x+2, p.y+2, PW, totalH, 0x55000000);
+        // Основной фон
+        fillRect(ms, p.x, p.y, PW, totalH, C_BG);
+        // Шапка категории
+        fillRect(ms, p.x, p.y, PW, HDRH, C_HEADER);
+        // Левая полоса-акцент
+        fillRect(ms, p.x, p.y, 2, HDRH, C_ACCENT);
+
+        // Название категории
+        String catName = p.cat.name().charAt(0) + p.cat.name().substring(1).toLowerCase();
+        font.drawString(ms, catName, p.x + 7, p.y + 4, C_ACCENT);
+
+        // Стрелка collapse
+        String arrow = p.collapsed ? "▶" : "▼";
+        font.drawString(ms, arrow, p.x + PW - 10, p.y + 4, C_SUBTEXT);
+
+        if (!p.collapsed) {
+            for (int i = 0; i < mods.size(); i++) {
+                Module m   = mods.get(i);
+                int    ry  = p.y + HDRH + i * ROWH;
+                boolean hover = inBounds(mx, my, p.x, ry, PW, ROWH);
+
+                // Фон строки
+                if (m.isEnabled()) fillRect(ms, p.x, ry, PW, ROWH, C_ON);
+                else if (hover)    fillRect(ms, p.x, ry, PW, ROWH, C_HOVER);
+
+                // Левая полоска для включённых
+                if (m.isEnabled()) fillRect(ms, p.x, ry, 2, ROWH, C_ACCENT2);
+
+                // Название
+                int textColor = m.isEnabled() ? C_TEXT : C_SUBTEXT;
+                font.drawString(ms, m.getName(), p.x + 7, ry + 3, textColor);
+
+                // Кейбинд справа
+                if (m.getKeyBind() != GLFW.GLFW_KEY_UNKNOWN) {
+                    String kb = m.getKeyName();
+                    int kw = font.getStringWidth(kb);
+                    font.drawString(ms, kb, p.x + PW - kw - 4, ry + 3, 0xFF555577);
+                }
+
+                // Тонкая разделительная линия
+                if (i < mods.size() - 1)
+                    fillRect(ms, p.x + 2, ry + ROWH - 1, PW - 4, 1, 0x22FFFFFF);
+            }
+        }
+        // Нижняя граница
+        fillRect(ms, p.x, p.y + totalH, PW, 1, C_ACCENT);
+    }
+
+    private void renderSettings(MatrixStack ms, int mx, int my) {
+        List<Setting<?>> settings = collectSettings(settingsMod);
+        int sh = 14 + settings.size() * SROW + SBIND + 2;
+
+        // Тень
+        fillRect(ms, sx+3, sy+3, SW, sh, 0x66000000);
+        // Фон
+        fillRect(ms, sx, sy, SW, sh, C_SETTINGS);
+        // Шапка
+        fillRect(ms, sx, sy, SW, 14, C_SETTINGS_H);
+        fillRect(ms, sx, sy, 2, 14, C_ACCENT2);
+        font.drawString(ms, "§b" + settingsMod.getName(), sx + 6, sy + 3, C_TEXT);
 
         for (int i = 0; i < settings.size(); i++) {
-            Setting<?> s = settings.get(i);
-            int ry = settingsY + 14 + i * 14;
-            renderSettingRow(ms, s, settingsX, ry, sw, mx, my);
+            int ry = sy + 14 + i * SROW;
+            renderSettingRow(ms, settings.get(i), i, ry, mx, my);
         }
 
-        int by = settingsY + 14 + settings.size() * 14;
-        fill(ms, settingsX, by, settingsX + sw, by + 13, 0x33FFFFFF);
-        String bindLabel = waitingForBind ? "\u00a7ePress key..." : "Bind: \u00a7f" + settingsTarget.getKeyName();
-        font.drawString(ms, bindLabel, settingsX + 3, by + 3, 0xCCCCCC);
+        // Строка бинда
+        int by = sy + 14 + settings.size() * SROW;
+        boolean bhover = inBounds(mx, my, sx, by, SW, SBIND);
+        fillRect(ms, sx, by, SW, SBIND, bhover ? 0x33FFFFFF : 0x00000000);
+        String bindLabel = waitBind ? "§eНажми клавишу..." : "§7Бинд: §f" + settingsMod.getKeyName();
+        font.drawString(ms, bindLabel, sx + 6, by + 3, C_TEXT);
+
+        // Нижняя граница
+        fillRect(ms, sx, sy + sh, SW, 1, C_ACCENT2);
     }
 
     @SuppressWarnings("unchecked")
-    private void renderSettingRow(MatrixStack ms, Setting<?> s, int x, int y, int w, int mx, int my) {
-        font.drawString(ms, s.getName(), x + 3, y + 3, 0xCCCCCC);
+    private void renderSettingRow(MatrixStack ms, Setting<?> s, int idx, int ry, int mx, int my) {
+        boolean hover = inBounds(mx, my, sx, ry, SW, SROW);
+        if (hover) fillRect(ms, sx, ry, SW, SROW, C_HOVER);
+
+        font.drawString(ms, s.getName(), sx + 6, ry + 4, C_SUBTEXT);
 
         Setting.Type type = s.getType();
         if (type == Setting.Type.TOGGLE) {
             boolean v = (Boolean) s.getValue();
-            String lbl = v ? "\u00a7aON" : "\u00a7cOFF";
-            font.drawString(ms, lbl, x + w - font.getStringWidth(v ? "ON" : "OFF") - 4, y + 3, 0xFFFFFF);
+            String lbl = v ? "§aВКЛ" : "§cВЫКЛ";
+            font.drawString(ms, lbl, sx + SW - font.getStringWidth(v ? "ВКЛ" : "ВЫКЛ") - 6, ry + 4, 0xFFFFFF);
+
         } else if (type == Setting.Type.ENUM) {
             String lbl = ((Enum<?>) s.getValue()).name();
-            font.drawString(ms, lbl, x + w - font.getStringWidth(lbl) - 4, y + 3, 0xFFD700);
+            font.drawString(ms, "§e" + lbl, sx + SW - font.getStringWidth(lbl) - 6, ry + 4, 0xFFFFFF);
+
         } else if (type == Setting.Type.SLIDER_INT || type == Setting.Type.SLIDER_FLOAT) {
             double val = s.getValue() instanceof Float ? (Float) s.getValue() : (Integer) s.getValue();
             double min = s.getMin(), max = s.getMax();
-            int barW   = w - 6;
-            int filled = (int) ((val - min) / (max - min) * barW);
-            fill(ms, x + 3, y + 9, x + 3 + barW, y + 12, 0x441A1A1A);
-            fill(ms, x + 3, y + 9, x + 3 + filled, y + 12, 0xFF00FFAA);
+            int barX = sx + 6, barW = SW - 12, barY = ry + 10, barH = 3;
+            int filled = (int)((val - min) / (max - min) * barW);
+
+            fillRect(ms, barX, barY, barW, barH, C_SLIDER_BG);
+            fillRect(ms, barX, barY, filled, barH, C_SLIDER_FG);
+            // Ручка
+            fillRect(ms, barX + filled - 1, barY - 1, 3, barH + 2, 0xFFAAAAAA);
+
             String valStr = s.getValue() instanceof Float
-                ? String.format("%.1f", val) : String.valueOf((int) val);
-            font.drawString(ms, valStr, x + w - font.getStringWidth(valStr) - 4, y + 3, 0xFFFFFF);
+                    ? String.format("%.2f", val) : String.valueOf((int) val);
+            font.drawString(ms, valStr, sx + SW - font.getStringWidth(valStr) - 6, ry + 4, C_TEXT);
         }
     }
 
+    // ════════════════════════════════════════════════════════════════
+    //  MOUSE EVENTS
+    // ════════════════════════════════════════════════════════════════
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
-        // Settings panel drag
-        if (settingsTarget != null && my >= settingsY && my < settingsY + 13
-                && mx >= settingsX && mx < settingsX + 120) {
-            settingsDragging = true;
-            settingsDragOffX = (int)(mx - settingsX);
-            settingsDragOffY = (int)(my - settingsY);
-            return true;
+    public boolean mouseClicked(double mx, double my, int btn) {
+        // Настройки: тащим шапку
+        if (settingsMod != null && inBounds((int)mx,(int)my, sx, sy, SW, 14) && btn == 0) {
+            sDrag = true; sdox = (int)(mx - sx); sdoy = (int)(my - sy); return true;
         }
-
-        // Settings click
-        if (settingsTarget != null && button == 0) {
-            if (handleSettingsClick((int) mx, (int) my)) return true;
-            settingsTarget = null;
-            waitingForBind = false;
-            return true;
+        // Настройки: клик по содержимому
+        if (settingsMod != null) {
+            if (handleSettingsClick((int)mx, (int)my, btn)) return true;
+            settingsMod = null; waitBind = false; return true;
         }
 
         for (Panel p : panels) {
-            if (my >= p.y && my < p.y + Panel.HEADER_H && mx >= p.x && mx < p.x + Panel.W) {
-                if (button == 0) {
-                    p.dragging  = true;
-                    p.dragOffX  = (int)(mx - p.x);
-                    p.dragOffY  = (int)(my - p.y);
-                } else if (button == 1) {
-                    p.collapsed = !p.collapsed;
-                }
+            // Шапка: drag или collapse
+            if (inBounds((int)mx,(int)my, p.x, p.y, PW, HDRH)) {
+                if (btn == 0) { p.dragging=true; p.dox=(int)(mx-p.x); p.doy=(int)(my-p.y); }
+                else if (btn == 1) p.collapsed = !p.collapsed;
                 return true;
             }
             if (!p.collapsed) {
                 List<Module> mods = CombatClient.moduleManager.getByCategory(p.cat);
                 for (int i = 0; i < mods.size(); i++) {
-                    int ry = p.y + Panel.HEADER_H + i * Panel.ROW_H;
-                    if (my >= ry && my < ry + Panel.ROW_H && mx >= p.x && mx < p.x + Panel.W) {
-                        Module m = mods.get(i);
-                        if (button == 0) {
-                            m.toggle();
-                        } else if (button == 1) {
-                            settingsTarget = m;
-                            settingsX      = (int) mx + 2;
-                            settingsY      = (int) my - 6;
-                            waitingForBind = false;
+                    int ry = p.y + HDRH + i * ROWH;
+                    if (inBounds((int)mx,(int)my, p.x, ry, PW, ROWH)) {
+                        if (btn == 0) mods.get(i).toggle();
+                        else if (btn == 1) {
+                            settingsMod = mods.get(i);
+                            sx = (int)mx + 4; sy = (int)my - 7;
+                            waitBind = false; dragSliderIdx = -1;
                         }
                         return true;
                     }
                 }
             }
         }
-        return super.mouseClicked(mx, my, button);
+        return super.mouseClicked(mx, my, btn);
     }
 
     @SuppressWarnings("unchecked")
-    private boolean handleSettingsClick(int mx, int my) {
-        List<Setting<?>> settings = getSettings(settingsTarget);
+    private boolean handleSettingsClick(int mx, int my, int btn) {
+        List<Setting<?>> settings = collectSettings(settingsMod);
+
         for (int i = 0; i < settings.size(); i++) {
             Setting<?> s = settings.get(i);
-            int ry = settingsY + 14 + i * 14;
-            if (my < ry || my >= ry + 14 || mx < settingsX || mx >= settingsX + 120) continue;
+            int ry = sy + 14 + i * SROW;
+            if (!inBounds(mx, my, sx, ry, SW, SROW)) continue;
 
             Setting.Type type = s.getType();
-            if (type == Setting.Type.TOGGLE) {
+            if (type == Setting.Type.TOGGLE && btn == 0) {
                 Setting<Boolean> sb = (Setting<Boolean>) s;
                 sb.setValue(!sb.getValue());
-            } else if (type == Setting.Type.ENUM) {
+            } else if (type == Setting.Type.ENUM && btn == 0) {
                 s.cycleEnum();
             } else if (type == Setting.Type.SLIDER_INT || type == Setting.Type.SLIDER_FLOAT) {
-                int barX   = settingsX + 3;
-                int barW   = 120 - 6;
-                double ratio = Math.max(0, Math.min(1.0, (mx - barX) / (double) barW));
-                double val   = s.getMin() + ratio * (s.getMax() - s.getMin());
-                if (s.getValue() instanceof Float) {
-                    ((Setting<Float>) s).setValue((float) val);
-                } else {
-                    ((Setting<Integer>) s).setValue((int) Math.round(val));
-                }
+                dragSliderIdx = i;
+                applySliderDrag(s, mx);
             }
             return true;
         }
-        // Bind row
-        int by = settingsY + 14 + settings.size() * 14;
-        if (my >= by && my < by + 13 && mx >= settingsX && mx < settingsX + 120) {
-            waitingForBind = true;
-            return true;
+
+        // Строка бинда
+        int by = sy + 14 + settings.size() * SROW;
+        if (inBounds(mx, my, sx, by, SW, SBIND) && btn == 0) {
+            waitBind = true; return true;
         }
         return false;
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (settingsDragging) {
-            settingsX = (int)(mx - settingsDragOffX);
-            settingsY = (int)(my - settingsDragOffY);
-            return true;
-        }
+    public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
+        if (sDrag) { sx = (int)(mx - sdox); sy = (int)(my - sdoy); return true; }
         for (Panel p : panels) {
-            if (p.dragging) {
-                p.x = (int)(mx - p.dragOffX);
-                p.y = (int)(my - p.dragOffY);
-                return true;
-            }
+            if (p.dragging) { p.x = (int)(mx - p.dox); p.y = (int)(my - p.doy); return true; }
         }
-        return super.mouseDragged(mx, my, button, dx, dy);
+        // Тянем слайдер
+        if (dragSliderIdx >= 0 && settingsMod != null) {
+            List<Setting<?>> settings = collectSettings(settingsMod);
+            if (dragSliderIdx < settings.size()) applySliderDrag(settings.get(dragSliderIdx), (int)mx);
+            return true;
+        }
+        return super.mouseDragged(mx, my, btn, dx, dy);
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
-        settingsDragging = false;
+    public boolean mouseReleased(double mx, double my, int btn) {
+        sDrag = false; dragSliderIdx = -1;
         for (Panel p : panels) p.dragging = false;
-        return super.mouseReleased(mx, my, button);
+        return super.mouseReleased(mx, my, btn);
     }
 
+    @SuppressWarnings("unchecked")
+    private void applySliderDrag(Setting<?> s, int mx) {
+        int barX = sx + 6, barW = SW - 12;
+        double ratio = Math.max(0, Math.min(1.0, (mx - barX) / (double) barW));
+        double val = s.getMin() + ratio * (s.getMax() - s.getMin());
+        if (s.getValue() instanceof Float) ((Setting<Float>) s).setValue((float) val);
+        else ((Setting<Integer>) s).setValue((int) Math.round(val));
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  KEY EVENTS
+    // ════════════════════════════════════════════════════════════════
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (waitingForBind && settingsTarget != null) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_DELETE) {
-                settingsTarget.setKeyBind(GLFW.GLFW_KEY_UNKNOWN);
-            } else {
-                settingsTarget.setKeyBind(keyCode);
-            }
-            waitingForBind = false;
+    public boolean keyPressed(int key, int scan, int mods) {
+        if (waitBind && settingsMod != null) {
+            if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_DELETE)
+                settingsMod.setKeyBind(GLFW.GLFW_KEY_UNKNOWN);
+            else settingsMod.setKeyBind(key);
+            waitBind = false;
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            if (settingsTarget != null) { settingsTarget = null; return true; }
-            onClose();
-            return true;
+        if (key == GLFW.GLFW_KEY_ESCAPE) {
+            if (settingsMod != null) { settingsMod = null; return true; }
+            onClose(); return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(key, scan, mods);
     }
 
-    private List<Setting<?>> getSettings(Module m) {
+    // ════════════════════════════════════════════════════════════════
+    //  УТИЛИТЫ
+    // ════════════════════════════════════════════════════════════════
+    private List<Setting<?>> collectSettings(Module m) {
         List<Setting<?>> list = new ArrayList<>();
         for (java.lang.reflect.Field f : m.getClass().getDeclaredFields()) {
             f.setAccessible(true);
-            try {
-                Object val = f.get(m);
-                if (val instanceof Setting) list.add((Setting<?>) val);
-            } catch (IllegalAccessException ignored) {}
+            try { Object v = f.get(m); if (v instanceof Setting) list.add((Setting<?>) v); }
+            catch (IllegalAccessException ignored) {}
         }
         return list;
+    }
+
+    private boolean inBounds(int mx, int my, int x, int y, int w, int h) {
+        return mx >= x && mx < x + w && my >= y && my < y + h;
+    }
+
+    private void fillRect(MatrixStack ms, int x, int y, int w, int h, int color) {
+        fill(ms, x, y, x + w, y + h, color);
+    }
+
+    private void fillGradientV(MatrixStack ms, int x1, int y1, int x2, int y2, int colorTop, int colorBottom) {
+        float at = ((colorTop >> 24) & 0xFF) / 255f,    rt = ((colorTop >> 16) & 0xFF) / 255f;
+        float gt = ((colorTop >> 8)  & 0xFF) / 255f,    bt = (colorTop        & 0xFF) / 255f;
+        float ab = ((colorBottom >> 24) & 0xFF) / 255f, rb = ((colorBottom >> 16) & 0xFF) / 255f;
+        float gb = ((colorBottom >> 8)  & 0xFF) / 255f, bb = (colorBottom       & 0xFF) / 255f;
+
+        RenderSystem.enableBlend();
+        RenderSystem.disableTexture();
+        RenderSystem.defaultBlendFunc();
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder buf = tess.getBuffer();
+        buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+        buf.pos(x1, y1, 0).color(rt, gt, bt, at).endVertex();
+        buf.pos(x1, y2, 0).color(rb, gb, bb, ab).endVertex();
+        buf.pos(x2, y2, 0).color(rb, gb, bb, ab).endVertex();
+        buf.pos(x2, y1, 0).color(rt, gt, bt, at).endVertex();
+        tess.draw();
+        RenderSystem.enableTexture();
+        RenderSystem.disableBlend();
     }
 }
