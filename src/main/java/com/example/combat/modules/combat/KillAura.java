@@ -270,18 +270,21 @@ public class KillAura extends Module {
         // IgnorePassive — не бить нейтралов если они не агрятся
         if (ignorePassive.getValue()) {
             if (e instanceof EndermanEntity && !((EndermanEntity) e).isCreepy()) return false;
-            if (e instanceof PiglinEntity && !((MobEntity) e).isAggressive()) return false;
-            if (e instanceof ZombiePigmanEntity && !((MobEntity) e).isAggressive()) return false;
+            // Forge 1.16.5: пиглины — net.minecraft.entity.monster.piglin
+            if (e instanceof net.minecraft.entity.monster.piglin.AbstractPiglinEntity
+                    && !((net.minecraft.entity.monster.piglin.AbstractPiglinEntity) e).isAggressive()) return false;
+            if (e instanceof ZombifiedPiglinEntity && !((ZombifiedPiglinEntity) e).isAggressive()) return false;
             if (e instanceof WolfEntity && !((WolfEntity) e).isAngry()) return false;
         }
 
         // Фильтр возраста мобов
-        if (e instanceof ZombieEntity || e instanceof PiglinEntity
+        if (e instanceof ZombieEntity
+                || e instanceof net.minecraft.entity.monster.piglin.AbstractPiglinEntity
                 || e instanceof HoglinEntity || e instanceof ZoglinEntity) {
             MobAgeFilter af = hostileAge.getValue();
             if (af == MobAgeFilter.BABY   && !e.isBaby()) return false;
             if (af == MobAgeFilter.ADULT  &&  e.isBaby()) return false;
-        } else if (e instanceof AnimalEntity || e instanceof AgeableEntity) {
+        } else if (e instanceof AnimalEntity || e instanceof net.minecraft.entity.AgeableEntity) {
             MobAgeFilter af = passiveAge.getValue();
             if (af == MobAgeFilter.BABY   && !e.isBaby()) return false;
             if (af == MobAgeFilter.ADULT  &&  e.isBaby()) return false;
@@ -338,8 +341,10 @@ public class KillAura extends Module {
             ItemStack s = mc.player.inventory.items.get(i);
             Item item = s.getItem();
             double dmg = 0;
-            if (item instanceof SwordItem)  dmg = ((SwordItem)  item).getDamage() + 2;
-            else if (item instanceof AxeItem)     dmg = ((AxeItem)    item).getDamage();
+            if (item instanceof SwordItem)  dmg = ((SwordItem) item).getDamage() + 2;
+            else if (item instanceof AxeItem)     dmg = s.getAttributeModifiers(net.minecraft.inventory.EquipmentSlotType.MAINHAND)
+                    .get(net.minecraft.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
+                    .stream().mapToDouble(m -> m.getAmount()).sum();
             if (dmg > bestDmg) { bestDmg = dmg; best = i; }
         }
         return best;
@@ -351,7 +356,9 @@ public class KillAura extends Module {
         for (int i = 0; i < 9; i++) {
             ItemStack s = mc.player.inventory.items.get(i);
             if (s.getItem() instanceof AxeItem) {
-                double dmg = ((AxeItem) s.getItem()).getDamage();
+                double dmg = s.getAttributeModifiers(net.minecraft.inventory.EquipmentSlotType.MAINHAND)
+                        .get(net.minecraft.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
+                        .stream().mapToDouble(m -> m.getAmount()).sum();
                 if (dmg > bestDmg) { bestDmg = dmg; best = i; }
             }
         }
