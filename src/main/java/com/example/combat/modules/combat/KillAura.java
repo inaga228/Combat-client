@@ -31,6 +31,7 @@ public class KillAura extends Module {
     public enum AimMode     { ALWAYS, ON_HIT, NONE }
     public enum ShieldMode  { IGNORE, BREAK, NONE }
     public enum MobAgeFilter{ BABY, ADULT, BOTH }
+    public enum SortPriority { CLOSEST_ANGLE, CLOSEST, LOWEST_HEALTH }
     public enum WeaponMode  { WEAPONS, ALL }
 
     // ══ Настройки ════════════════════════════════════════════════════════
@@ -51,6 +52,9 @@ public class KillAura extends Module {
     public final Setting<Boolean>     ignoreNamed  = new Setting<>("IgnoreNamed",  false);
     public final Setting<Boolean>     ignorePassive= new Setting<>("IgnorePassive",true);
     public final Setting<Boolean>     ignoreTamed  = new Setting<>("IgnoreTamed",  false);
+    public final Setting<Boolean>      onlyOnLook   = new Setting<>("OnlyOnLook",   false);
+    public final Setting<Integer>      maxTargets   = new Setting<>("MaxTargets",   1).range(1, 5);
+    public final Setting<SortPriority> sortPriority = new Setting<>("SortPriority", SortPriority.CLOSEST_ANGLE);
     public final Setting<MobAgeFilter>passiveAge   = new Setting<>("PassiveAge",   MobAgeFilter.ADULT);
     public final Setting<MobAgeFilter>hostileAge   = new Setting<>("HostileAge",   MobAgeFilter.BOTH);
 
@@ -90,6 +94,7 @@ public class KillAura extends Module {
         // Вернуть слот если AutoSwitch + SwapBack
         if (swapBack.getValue() && swapped && prevSlot != -1) {
             mc.player.inventory.selected = prevSlot;
+            swapped = false;
         }
         swapped     = false;
         firstTarget = true;
@@ -99,8 +104,14 @@ public class KillAura extends Module {
     public void onUpdate() {
         if (mc.player == null || mc.level == null) return;
         if (!mc.player.isAlive()) return;
-        if (pauseOnUse.getValue() && (mc.player.isUsingItem())) return;
+        if (pauseOnUse.getValue() && (mc.player.isUsingItem() || (mc.gameMode != null && mc.gameMode.isDestroying()))) return;
         if (onlyOnClick.getValue() && mc.options.keyAttack.isDown() == false) return;
+
+        // ── OnlyOnLook ──────────────────────────────────────────────
+        if (onlyOnLook.getValue() && !(mc.crosshairPickEntity instanceof LivingEntity)) {
+            firstTarget = true;
+            return;
+        }
 
         // ── Собрать список целей ────────────────────────────────────
         List<LivingEntity> targets = getTargets();
@@ -220,8 +231,27 @@ public class KillAura extends Module {
         List<LivingEntity> list = mc.level.getEntitiesOfClass(LivingEntity.class, box,
                 e -> entityCheck(e, eye));
 
-        // Сортировка: ближний угол (как ClosestAngle в Meteor)
-        list.sort(Comparator.comparingDouble(e -> getAngleTo(e)));
+        // Сортировка по SortPriority
+        switch (sortPriority.getValue()) {
+            case CLOSEST:
+                list.sort(Comparator.comparingDouble(e -> {
+                    AxisAlignedBB hb = e.getBoundingBox();
+                    double cx = MathHelper.clamp(mc.player.getX(), hb.minX, hb.maxX);
+                    double cy = MathHelper.clamp(mc.player.getY(), hb.minY, hb.maxY);
+                    double cz = MathHelper.clamp(mc.player.getZ(), hb.minZ, hb.maxZ);
+                    return mc.player.position().distanceTo(new Vector3d(cx, cy, cz));
+                }));
+                break;
+            case LOWEST_HEALTH:
+                list.sort(Comparator.comparingDouble(e -> e.getHealth()));
+                break;
+            default:
+                list.sort(Comparator.comparingDouble(e -> getAngleTo(e)));
+                break;
+        }
+        // MaxTargets limit
+        int max = maxTargets.getValue();
+        if (list.size() > max) list = list.subList(0, max);
         return list;
     }
 
