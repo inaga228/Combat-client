@@ -2,9 +2,12 @@ package com.example.combat.modules.combat;
 
 import com.example.combat.modules.Module;
 import com.example.combat.modules.Setting;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.monster.IMob;
+import net.minecraft.entity.monster.*;
+import net.minecraft.entity.passive.*;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.*;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.MathHelper;
@@ -12,219 +15,344 @@ import net.minecraft.util.math.RayTraceContext;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.vector.Vector3d;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * KillAura — Forge 1.16.5
+ * Логика портирована с Meteor Client (Fabric).
+ */
 public class KillAura extends Module {
 
-    public enum TargetMode { PLAYERS, MOBS, ALL }
-    public enum AimMode    { CAMERA, BODY, HYBRID }
-    public enum CritMode   { OFF, JUMP }
+    // ══ Enums ═══════════════════════════════════════════════════════════
+    public enum TargetMode  { PLAYERS, MOBS, ALL }
+    public enum AimMode     { ALWAYS, ON_HIT, NONE }
+    public enum ShieldMode  { IGNORE, BREAK, NONE }
+    public enum MobAgeFilter{ BABY, ADULT, BOTH }
+    public enum WeaponMode  { WEAPONS, ALL }
 
-    public final Setting<Float>      range      = new Setting<>("Range",      3.5f).range(2.0, 6.0);
-    public final Setting<TargetMode> targetMode = new Setting<>("Targets",    TargetMode.PLAYERS);
-    public final Setting<AimMode>    aimMode    = new Setting<>("AimMode",    AimMode.CAMERA);
-    public final Setting<Integer>    minCps     = new Setting<>("CPS Min",    8).range(1, 20);
-    public final Setting<Integer>    maxCps     = new Setting<>("CPS Max",    12).range(1, 20);
-    public final Setting<Boolean>    smoothRot  = new Setting<>("SmoothRot",  true);
-    public final Setting<Float>      smoothSpd  = new Setting<>("SmoothSpd",  0.18f).range(0.05f, 1.0f);
-    public final Setting<Boolean>    raytrace   = new Setting<>("Raytrace",   true);
-    public final Setting<Boolean>    autoSwitch = new Setting<>("AutoSwitch", true);
-    public final Setting<CritMode>   critMode   = new Setting<>("Crits",      CritMode.OFF);
+    // ══ Настройки ════════════════════════════════════════════════════════
+    // --- Общие ---
+    public final Setting<WeaponMode>  weaponMode   = new Setting<>("WeaponMode",   WeaponMode.WEAPONS);
+    public final Setting<AimMode>     aimMode      = new Setting<>("AimMode",      AimMode.ALWAYS);
+    public final Setting<Boolean>     smoothRot    = new Setting<>("SmoothRot",    true);
+    public final Setting<Float>       smoothSpd    = new Setting<>("SmoothSpd",    0.18f).range(0.05, 1.0);
+    public final Setting<Boolean>     autoSwitch   = new Setting<>("AutoSwitch",   false);
+    public final Setting<Boolean>     swapBack     = new Setting<>("SwapBack",     false);
+    public final Setting<ShieldMode>  shieldMode   = new Setting<>("ShieldMode",   ShieldMode.NONE);
+    public final Setting<Boolean>     onlyOnClick  = new Setting<>("OnlyOnClick",  false);
 
+    // --- Таргетинг ---
+    public final Setting<TargetMode>  targetMode   = new Setting<>("Targets",      TargetMode.PLAYERS);
+    public final Setting<Float>       range        = new Setting<>("Range",        4.5f).range(2.0, 6.0);
+    public final Setting<Float>       wallsRange   = new Setting<>("WallsRange",   3.5f).range(0.0, 6.0);
+    public final Setting<Boolean>     ignoreNamed  = new Setting<>("IgnoreNamed",  false);
+    public final Setting<Boolean>     ignorePassive= new Setting<>("IgnorePassive",true);
+    public final Setting<Boolean>     ignoreTamed  = new Setting<>("IgnoreTamed",  false);
+    public final Setting<MobAgeFilter>passiveAge   = new Setting<>("PassiveAge",   MobAgeFilter.ADULT);
+    public final Setting<MobAgeFilter>hostileAge   = new Setting<>("HostileAge",   MobAgeFilter.BOTH);
+
+    // --- Тайминг ---
+    public final Setting<Boolean>     pauseOnUse   = new Setting<>("PauseOnUse",   false);
+    public final Setting<Boolean>     customDelay  = new Setting<>("CustomDelay",  false);
+    public final Setting<Integer>     hitDelayTicks= new Setting<>("HitDelay",     11).range(0, 60);
+    public final Setting<Integer>     switchDelay  = new Setting<>("SwitchDelay",  0).range(0, 10);
+
+    // ══ Состояние ════════════════════════════════════════════════════════
     private static final Random RAND = new Random();
 
-    private long    lastAttackMs     = 0;
-    private long    lastSlotMs       = 0;
-    private long    lastJumpMs       = 0;
-    private boolean jumpingForCrit   = false;
+    private int  hitTimer      = 0;
+    private int  switchTimer   = 0;
+    private int  prevSlot      = -1;
+    private boolean swapped    = false;
 
-    // Плавный прицел с интерполяцией
+    // Плавный прицел
     private float currentYaw   = 0;
     private float currentPitch = 0;
     private boolean firstTarget = true;
 
+    // ════════════════════════════════════════════════════════════════════
     public KillAura() {
         super("KillAura", "Automatically attacks nearby entities", Category.COMBAT);
     }
 
     @Override
-    public void onDisable() {
+    public void onEnable() {
+        prevSlot   = -1;
+        swapped    = false;
         firstTarget = true;
-        jumpingForCrit = false;
+    }
+
+    @Override
+    public void onDisable() {
+        // Вернуть слот если AutoSwitch + SwapBack
+        if (swapBack.getValue() && swapped && prevSlot != -1) {
+            mc.player.inventory.selected = prevSlot;
+        }
+        swapped     = false;
+        firstTarget = true;
     }
 
     @Override
     public void onUpdate() {
         if (mc.player == null || mc.level == null) return;
+        if (!mc.player.isAlive()) return;
+        if (pauseOnUse.getValue() && (mc.player.isUsingItem())) return;
+        if (onlyOnClick.getValue() && mc.options.keyAttack.isDown() == false) return;
 
-        if (critMode.getValue() == CritMode.JUMP) handleCritJump();
-
-        LivingEntity target = getBestTarget();
-        if (target == null) {
+        // ── Собрать список целей ────────────────────────────────────
+        List<LivingEntity> targets = getTargets();
+        if (targets.isEmpty()) {
             firstTarget = true;
             return;
         }
 
-        // Автосвап
-        if (autoSwitch.getValue() && System.currentTimeMillis() - lastSlotMs > 2000) {
-            int best = getBestWeaponSlot();
-            if (best != -1 && mc.player.inventory.selected != best) {
-                mc.player.inventory.selected = best;
-                lastSlotMs = System.currentTimeMillis();
+        LivingEntity primary = targets.get(0);
+
+        // ── AutoSwitch ──────────────────────────────────────────────
+        if (autoSwitch.getValue()) {
+            if (!swapped) {
+                prevSlot = mc.player.inventory.selected;
+                swapped  = true;
+            }
+            int best = shouldBreakShield(targets)
+                    ? getBestAxeSlot()
+                    : getBestWeaponSlot();
+            if (best != -1) {
+                if (mc.player.inventory.selected != best) {
+                    mc.player.inventory.selected = best;
+                    switchTimer = switchDelay.getValue();
+                }
             }
         }
 
-        // Целевые углы
-        float[] angles = calcAngles(target);
-        float tYaw   = angles[0];
-        float tPitch = angles[1];
+        // Проверка подходящего оружия в руке
+        if (!isAcceptableWeapon(mc.player.inventory.getSelected(), targets)) return;
 
-        // Инициализация при новом таргете
+        // ── Вращение ────────────────────────────────────────────────
+        if (aimMode.getValue() == AimMode.ALWAYS) {
+            rotateTo(primary);
+        }
+
+        // ── Задержка переключения слота ─────────────────────────────
+        if (switchTimer > 0) {
+            switchTimer--;
+            return;
+        }
+
+        // ── Проверка задержки удара ──────────────────────────────────
+        if (!canHit()) return;
+
+        // ── Бить все цели из списка ──────────────────────────────────
+        for (LivingEntity target : targets) {
+            if (aimMode.getValue() == AimMode.ON_HIT) rotateTo(target);
+            mc.gameMode.attack(mc.player, target);
+            mc.player.swing(Hand.MAIN_HAND);
+        }
+        hitTimer = 0;
+    }
+
+    // ══ Логика задержки удара ════════════════════════════════════════════
+    private boolean canHit() {
+        if (customDelay.getValue()) {
+            if (hitTimer < hitDelayTicks.getValue()) {
+                hitTimer++;
+                return false;
+            }
+            return true;
+        }
+        // Vanilla cooldown — ждём полного заряда (как в Meteor)
+        return mc.player.getAttackStrengthScale(0.5f) >= 1.0f;
+    }
+
+    // ══ Вращение к цели ═════════════════════════════════════════════════
+    private void rotateTo(LivingEntity e) {
+        // Целим в центр тела
+        Vector3d pos   = e.position().add(0, e.getBbHeight() * 0.5, 0);
+        Vector3d delta = pos.subtract(mc.player.getEyePosition(1f));
+        float tYaw   = (float) Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90f;
+        float tPitch = (float) -Math.toDegrees(
+                Math.atan2(delta.y, Math.sqrt(delta.x * delta.x + delta.z * delta.z)));
+        tPitch = MathHelper.clamp(tPitch, -90f, 90f);
+
         if (firstTarget) {
             currentYaw   = mc.player.yRot;
             currentPitch = mc.player.xRot;
             firstTarget  = false;
         }
 
-        // Плавная интерполяция с эффектом замедления (ease-out)
         if (smoothRot.getValue()) {
             float spd = smoothSpd.getValue();
-            float yawDiff   = MathHelper.wrapDegrees(tYaw   - currentYaw);
-            float pitchDiff = MathHelper.wrapDegrees(tPitch - currentPitch);
-
-            // Ease-out: скорость пропорциональна расстоянию, но не меньше мин. шага
-            float yawStep   = yawDiff   * spd + (yawDiff   > 0 ? 0.3f : -0.3f) * (1f - spd);
-            float pitchStep = pitchDiff * spd + (pitchDiff > 0 ? 0.3f : -0.3f) * (1f - spd);
-
-            // Микро-рандомизация — «человеческий» тремор
-            yawStep   += (RAND.nextFloat() - 0.5f) * 0.05f;
-            pitchStep += (RAND.nextFloat() - 0.5f) * 0.03f;
-
-            currentYaw   += yawStep;
-            currentPitch += pitchStep;
+            float dYaw   = MathHelper.wrapDegrees(tYaw   - currentYaw);
+            float dPitch = MathHelper.wrapDegrees(tPitch - currentPitch);
+            float stepY  = dYaw   * spd + (dYaw   > 0 ? 0.3f : -0.3f) * (1f - spd);
+            float stepP  = dPitch * spd + (dPitch > 0 ? 0.3f : -0.3f) * (1f - spd);
+            // Человеческий тремор
+            stepY += (RAND.nextFloat() - 0.5f) * 0.05f;
+            stepP += (RAND.nextFloat() - 0.5f) * 0.03f;
+            currentYaw   += stepY;
+            currentPitch += stepP;
             currentPitch  = MathHelper.clamp(currentPitch, -90f, 90f);
         } else {
-            // Без сглаживания — мгновенный поворот
             currentYaw   = tYaw;
             currentPitch = tPitch;
         }
 
-        // GCD коррекция (анти-анализ движения мыши)
-        float div = 0.15f;
-        float gcdYaw   = mc.player.yRot + (float)(Math.round((currentYaw   - mc.player.yRot)   / div) * div);
-        float gcdPitch = mc.player.xRot + (float)(Math.round((currentPitch - mc.player.xRot)   / div) * div);
+        // GCD коррекция — анти-детект движения мыши
+        float div  = 0.15f;
+        float gcdY = mc.player.yRot + (float)(Math.round((currentYaw   - mc.player.yRot) / div) * div);
+        float gcdP = mc.player.xRot + (float)(Math.round((currentPitch - mc.player.xRot) / div) * div);
 
-        switch (aimMode.getValue()) {
-            case CAMERA:
-                mc.player.yRot = gcdYaw;
-                mc.player.xRot = gcdPitch;
-                break;
-            case BODY:
-                mc.player.yBodyRot = gcdYaw;
-                mc.player.yHeadRot = gcdYaw;
-                break;
-            case HYBRID:
-                mc.player.yRot     = gcdYaw;
-                mc.player.xRot     = gcdPitch;
-                mc.player.yBodyRot = gcdYaw;
-                mc.player.yHeadRot = gcdYaw;
-                break;
-        }
-
-        // CPS с рандомизацией
-        int lo  = Math.min(minCps.getValue(), maxCps.getValue());
-        int hi  = Math.max(minCps.getValue(), maxCps.getValue());
-        int cps = lo + (lo == hi ? 0 : RAND.nextInt(hi - lo + 1));
-        int delayMs = (int)(1000.0 / cps);
-        // ±10% случайный джиттер
-        delayMs += (int)((RAND.nextFloat() - 0.5f) * delayMs * 0.20f);
-
-        long now      = System.currentTimeMillis();
-        boolean canHit = mc.player.getAttackStrengthScale(0) >= 0.98f;
-        boolean critOk = (critMode.getValue() != CritMode.JUMP)
-                       || !jumpingForCrit
-                       || mc.player.fallDistance > 0.05f;
-
-        if (canHit && critOk && (now - lastAttackMs) >= delayMs) {
-            mc.gameMode.attack(mc.player, target);
-            mc.player.swing(Hand.MAIN_HAND);
-            lastAttackMs = now;
-            if (critMode.getValue() == CritMode.JUMP) jumpingForCrit = false;
-        }
+        mc.player.yRot     = gcdY;
+        mc.player.xRot     = gcdP;
+        mc.player.yBodyRot = gcdY;
+        mc.player.yHeadRot = gcdY;
     }
 
-    // ── Крит-прыжок ──────────────────────────────────────────────
-    private void handleCritJump() {
-        if (mc.player.isOnGround() && !mc.player.isCrouching()
-                && !mc.player.isInWater() && !mc.player.onClimbable()) {
-            long now = System.currentTimeMillis();
-            if (now - lastJumpMs > 500 && !jumpingForCrit) {
-                mc.player.jumpFromGround();
-                lastJumpMs = now;
-                jumpingForCrit = true;
-            }
-        }
-    }
-
-    // ── Углы на цель ──────────────────────────────────────────────
-    private float[] calcAngles(LivingEntity e) {
-        Vector3d pos   = e.position().add(0, e.getBbHeight() * 0.5, 0);
-        Vector3d delta = pos.subtract(mc.player.getEyePosition(1f));
-        float yaw   = (float) Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90f;
-        float pitch = (float) -Math.toDegrees(
-                Math.atan2(delta.y, Math.sqrt(delta.x * delta.x + delta.z * delta.z)));
-        return new float[]{ yaw, MathHelper.clamp(pitch, -90f, 90f) };
-    }
-
-    // ── Выбор цели ───────────────────────────────────────────────
-    private LivingEntity getBestTarget() {
+    // ══ Получение списка целей ═══════════════════════════════════════════
+    private List<LivingEntity> getTargets() {
         float r = range.getValue();
         AxisAlignedBB box = mc.player.getBoundingBox().inflate(r, r, r);
         Vector3d eye = mc.player.getEyePosition(1f);
 
-        List<LivingEntity> candidates = mc.level.getEntitiesOfClass(LivingEntity.class, box, e -> {
-            if (e == mc.player) return false;
-            if (!e.isAlive() || e.getHealth() <= 0) return false;
-            if (mc.player.distanceTo(e) > r) return false;
+        List<LivingEntity> list = mc.level.getEntitiesOfClass(LivingEntity.class, box,
+                e -> entityCheck(e, eye));
 
-            TargetMode mode = targetMode.getValue();
-            if (mode == TargetMode.PLAYERS && !(e instanceof PlayerEntity)) return false;
-            if (mode == TargetMode.MOBS    && !(e instanceof IMob))         return false;
-
-            if (raytrace.getValue()) {
-                float h = e.getBbHeight();
-                Vector3d[] pts = {
-                    e.position().add(0, h * 0.9, 0),
-                    e.position().add(0, h * 0.5, 0),
-                    e.position().add(0, h * 0.1, 0)
-                };
-                for (Vector3d pt : pts) {
-                    RayTraceContext ctx = new RayTraceContext(eye, pt,
-                            RayTraceContext.BlockMode.COLLIDER,
-                            RayTraceContext.FluidMode.NONE, mc.player);
-                    if (mc.level.clip(ctx).getType() != RayTraceResult.Type.BLOCK)
-                        return true;
-                }
-                return false;
-            }
-            return true;
-        });
-
-        return candidates.stream()
-                .min(Comparator.comparingDouble(e -> mc.player.distanceTo(e)))
-                .orElse(null);
+        // Сортировка: ближний угол (как ClosestAngle в Meteor)
+        list.sort(Comparator.comparingDouble(e -> getAngleTo(e)));
+        return list;
     }
 
-    // ── Лучшее оружие в хотбаре ──────────────────────────────────
+    private double getAngleTo(LivingEntity e) {
+        Vector3d pos   = e.position().add(0, e.getBbHeight() * 0.5, 0);
+        Vector3d delta = pos.subtract(mc.player.getEyePosition(1f)).normalize();
+        Vector3d look  = mc.player.getLookAngle();
+        return Math.acos(MathHelper.clamp(look.dot(delta), -1.0, 1.0));
+    }
+
+    // ══ Проверка цели ════════════════════════════════════════════════════
+    private boolean entityCheck(LivingEntity e, Vector3d eye) {
+        if (e == mc.player) return false;
+        if (!e.isAlive() || e.getHealth() <= 0) return false;
+
+        float r = range.getValue();
+
+        // Проверка дистанции через хитбокс (как в Meteor)
+        AxisAlignedBB hitbox = e.getBoundingBox();
+        double clampedX = MathHelper.clamp(mc.player.getX(), hitbox.minX, hitbox.maxX);
+        double clampedY = MathHelper.clamp(mc.player.getY(), hitbox.minY, hitbox.maxY);
+        double clampedZ = MathHelper.clamp(mc.player.getZ(), hitbox.minZ, hitbox.maxZ);
+        double dist = mc.player.position().distanceTo(new Vector3d(clampedX, clampedY, clampedZ));
+        if (dist > r) return false;
+
+        // Фильтр по типу цели
+        TargetMode mode = targetMode.getValue();
+        boolean isPlayer = e instanceof PlayerEntity;
+        boolean isMob    = e instanceof IMob;
+        if (mode == TargetMode.PLAYERS && !isPlayer) return false;
+        if (mode == TargetMode.MOBS    && !isMob)    return false;
+
+        // Игроки
+        if (isPlayer) {
+            PlayerEntity player = (PlayerEntity) e;
+            if (player.isCreative()) return false;
+            if (shieldMode.getValue() == ShieldMode.IGNORE && player.isBlocking()) return false;
+        }
+
+        if (ignoreNamed.getValue() && e.hasCustomName()) return false;
+        if (ignoreTamed.getValue() && e instanceof TameableEntity) {
+            TameableEntity tame = (TameableEntity) e;
+            if (tame.getOwner() != null && tame.getOwner().equals(mc.player)) return false;
+        }
+
+        // IgnorePassive — не бить нейтралов если они не агрятся
+        if (ignorePassive.getValue()) {
+            if (e instanceof EndermanEntity && !((EndermanEntity) e).isCreepy()) return false;
+            if (e instanceof PiglinEntity && !((MobEntity) e).isAggressive()) return false;
+            if (e instanceof ZombiePigmanEntity && !((MobEntity) e).isAggressive()) return false;
+            if (e instanceof WolfEntity && !((WolfEntity) e).isAngry()) return false;
+        }
+
+        // Фильтр возраста мобов
+        if (e instanceof ZombieEntity || e instanceof PiglinEntity
+                || e instanceof HoglinEntity || e instanceof ZoglinEntity) {
+            MobAgeFilter af = hostileAge.getValue();
+            if (af == MobAgeFilter.BABY   && !e.isBaby()) return false;
+            if (af == MobAgeFilter.ADULT  &&  e.isBaby()) return false;
+        } else if (e instanceof AnimalEntity || e instanceof AgeableEntity) {
+            MobAgeFilter af = passiveAge.getValue();
+            if (af == MobAgeFilter.BABY   && !e.isBaby()) return false;
+            if (af == MobAgeFilter.ADULT  &&  e.isBaby()) return false;
+        }
+
+        // Сквозь стены — wallsRange
+        boolean canSee = canSeeEntity(e, eye);
+        if (!canSee && dist > wallsRange.getValue()) return false;
+
+        return true;
+    }
+
+    // ══ Видимость ═══════════════════════════════════════════════════════
+    private boolean canSeeEntity(LivingEntity e, Vector3d eye) {
+        float h = e.getBbHeight();
+        Vector3d[] pts = {
+            e.position().add(0, h * 0.9, 0),
+            e.position().add(0, h * 0.5, 0),
+            e.position().add(0, h * 0.1, 0)
+        };
+        for (Vector3d pt : pts) {
+            RayTraceContext ctx = new RayTraceContext(eye, pt,
+                    RayTraceContext.BlockMode.COLLIDER,
+                    RayTraceContext.FluidMode.NONE, mc.player);
+            if (mc.level.clip(ctx).getType() != RayTraceResult.Type.BLOCK)
+                return true;
+        }
+        return false;
+    }
+
+    // ══ Проверка щита у кого-либо из целей ═══════════════════════════════
+    private boolean shouldBreakShield(List<LivingEntity> targets) {
+        if (shieldMode.getValue() != ShieldMode.BREAK) return false;
+        for (LivingEntity t : targets) {
+            if (t instanceof PlayerEntity && ((PlayerEntity) t).isBlocking()) return true;
+        }
+        return false;
+    }
+
+    // ══ Поиск слотов оружия ═════════════════════════════════════════════
+    private boolean isAcceptableWeapon(ItemStack stack, List<LivingEntity> targets) {
+        if (shouldBreakShield(targets)) return stack.getItem() instanceof AxeItem;
+        if (weaponMode.getValue() == WeaponMode.ALL) return true;
+        Item item = stack.getItem();
+        return item instanceof SwordItem || item instanceof AxeItem
+                || item instanceof PickaxeItem || item instanceof ShovelItem
+                || item instanceof HoeItem    || item instanceof TridentItem;
+    }
+
     private int getBestWeaponSlot() {
-        int best = -1; double dmg = 0;
+        int best = -1;
+        double bestDmg = -1;
         for (int i = 0; i < 9; i++) {
-            net.minecraft.item.ItemStack s = mc.player.inventory.items.get(i);
-            if (s.getItem() instanceof net.minecraft.item.SwordItem) {
-                double d = ((net.minecraft.item.SwordItem) s.getItem()).getDamage();
-                if (d > dmg) { dmg = d; best = i; }
+            ItemStack s = mc.player.inventory.items.get(i);
+            Item item = s.getItem();
+            double dmg = 0;
+            if (item instanceof SwordItem)  dmg = ((SwordItem)  item).getDamage() + 2;
+            else if (item instanceof AxeItem)     dmg = ((AxeItem)    item).getDamage();
+            if (dmg > bestDmg) { bestDmg = dmg; best = i; }
+        }
+        return best;
+    }
+
+    private int getBestAxeSlot() {
+        int best = -1;
+        double bestDmg = -1;
+        for (int i = 0; i < 9; i++) {
+            ItemStack s = mc.player.inventory.items.get(i);
+            if (s.getItem() instanceof AxeItem) {
+                double dmg = ((AxeItem) s.getItem()).getDamage();
+                if (dmg > bestDmg) { bestDmg = dmg; best = i; }
             }
         }
         return best;
