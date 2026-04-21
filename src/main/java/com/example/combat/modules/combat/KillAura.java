@@ -161,7 +161,7 @@ public class KillAura extends Module {
                 && !mc.player.isInWater() && !mc.player.onClimbable()) {
             long now = System.currentTimeMillis();
             if (now - lastJumpMs > 500 && !jumpingForCrit) {
-                mc.player.jump();
+                mc.player.jumpFromGround();
                 lastJumpMs = now;
                 jumpingForCrit = true;
             }
