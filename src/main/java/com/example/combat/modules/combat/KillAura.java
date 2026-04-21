@@ -26,6 +26,9 @@ import java.util.Random;
  */
 public class KillAura extends Module {
 
+    /** Статик ссылка для Criticals. */
+    public static KillAura INSTANCE;
+
     // ══ Enums ═══════════════════════════════════════════════════════════
     public enum TargetMode  { PLAYERS, MOBS, ALL }
     public enum AimMode     { ALWAYS, ON_HIT, NONE }
@@ -80,6 +83,7 @@ public class KillAura extends Module {
     // ════════════════════════════════════════════════════════════════════
     public KillAura() {
         super("KillAura", "Automatically attacks nearby entities", Category.COMBAT);
+        INSTANCE = this;
     }
 
     @Override
@@ -159,8 +163,12 @@ public class KillAura extends Module {
         // ── Бить все цели из списка ──────────────────────────────────
         for (LivingEntity target : targets) {
             if (aimMode.getValue() == AimMode.ON_HIT) rotateTo(target);
-            mc.gameMode.attack(mc.player, target);
-            mc.player.swing(Hand.MAIN_HAND);
+            // Criticals — отправляем пакеты крита перед ударом
+            Criticals crit = Criticals.INSTANCE;
+            if (crit == null || !crit.beforeAttack()) {
+                mc.gameMode.attack(mc.player, target);
+                mc.player.swing(Hand.MAIN_HAND);
+            }
         }
         hitTimer = 0;
     }

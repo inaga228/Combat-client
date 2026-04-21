@@ -1,5 +1,7 @@
 package com.example.combat.modules;
 
+import com.example.combat.modules.combat.AutoTotem;
+import com.example.combat.modules.combat.Criticals;
 import com.example.combat.modules.combat.KillAura;
 import com.example.combat.modules.hud.Notifications;
 import com.example.combat.modules.player.FastPlace;
@@ -13,6 +15,8 @@ public class ModuleManager {
 
     public ModuleManager() {
         register(new KillAura());
+        register(new Criticals());
+        register(new AutoTotem());
         register(new FastPlace());
         register(new Notifications());
     }

@@ -14,276 +14,325 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * ClickGUI — тёмный дизайн с плавными градиентами и аккуратными элементами.
- * LMB: toggle | RMB: настройки | Drag header: перемещение
+ * ClickGUI — анимированный, со скроллом.
+ *
+ *  • Открытие: каждая панель плавно «падает» сверху
+ *  • Категории: анимированный expand/collapse (высота интерполируется)
+ *  • Скролл колёсиком внутри панели + в окне настроек
+ *  • Настройки модуля — скроллируемая панель справа
+ *  • Слайдеры — drag мышью
  */
 public class ClickGUI extends Screen {
 
-    // ── Цветовая палитра ─────────────────────────────────────────
-    private static final int BG        = 0xF0121218;
-    private static final int HDR_TOP   = 0xFF1E1E2E;
-    private static final int HDR_BOT   = 0xFF161624;
-    private static final int ACCENT    = 0xFF6C63FF;   // фиолетовый
-    private static final int ACCENT2   = 0xFF9B59B6;   // более тёплый фиолет
-    private static final int MOD_ON    = 0xFF1E1E38;
-    private static final int MOD_GLOW  = 0x336C63FF;
-    private static final int HOVER     = 0x1AFFFFFF;
-    private static final int TEXT_ON   = 0xFFE8E8FF;
-    private static final int TEXT_OFF  = 0xFF7A7A9A;
-    private static final int DIVIDER   = 0x18FFFFFF;
-    private static final int SL_TRACK  = 0xFF252535;
-    private static final int SL_FILL   = 0xFF6C63FF;
-    private static final int SL_THUMB  = 0xFFBBBBDD;
-    private static final int SET_BG    = 0xF2131320;
-    private static final int SET_HDR_T = 0xFF201832;
-    private static final int SET_HDR_B = 0xFF180C28;
+    // ─── Палитра ──────────────────────────────────────────────────────
+    private static final int BG        = 0xEE0D0D14;
+    private static final int HDR       = 0xFF13131F;
+    private static final int ACC       = 0xFF6C63FF; // основной акцент — фиолет
+    private static final int ACC2      = 0xFF9D4EDD; // вторичный акцент
+    private static final int ON_BG     = 0xFF1E1B33;
+    private static final int HOVER_BG  = 0x20FFFFFF;
+    private static final int TXT       = 0xFFE0E0FF;
+    private static final int SUB       = 0xFF777799;
+    private static final int SEP       = 0x18FFFFFF;
+    private static final int SBG       = 0xF0090912; // настройки фон
+    private static final int SHDR      = 0xFF111120;
+    private static final int SLBG      = 0xFF1A1A2E;
+    private static final int SLFG      = 0xFF6C63FF;
 
-    // ── Размеры ──────────────────────────────────────────────────
-    private static final int PW   = 116;
-    private static final int HDRH = 18;
-    private static final int ROWH = 14;
-    private static final int SW   = 148;
-    private static final int SROW = 18;
-    private static final int SBND = 15;
+    // ─── Размеры ──────────────────────────────────────────────────────
+    private static final int PW      = 115; // ширина панели
+    private static final int HDRH    = 18;  // шапка категории
+    private static final int ROWH    = 14;  // строка модуля
+    private static final int GAP     = 6;   // отступ между панелями
+    private static final int SW      = 145; // ширина окна настроек
+    private static final int SROW    = 18;  // строка настройки
+    private static final int SBIND_H = 16;  // строка бинда
 
-    // ── Анимации модулей ─────────────────────────────────────────
-    // anim[panelIdx][modIdx] — от 0.0 до 1.0
-    private float[][] modAnim;
-
+    // ─── Панель ───────────────────────────────────────────────────────
     private static class Panel {
         Module.Category cat;
-        int x, y, dox, doy;
-        boolean collapsed = false, dragging = false;
-        Panel(Module.Category c, int x, int y) { cat=c; this.x=x; this.y=y; }
+        int x; float y, targetY;      // targetY для анимации появления
+        boolean collapsed = false;
+        boolean dragging  = false;
+        int dox, doy;
+        float animH;                   // анимированная высота контента
+        float scroll = 0;              // текущий скролл (пиксели)
+
+        Panel(Module.Category cat, int x, float startY, float targetY) {
+            this.cat = cat; this.x = x; this.y = startY; this.targetY = targetY;
+            this.animH = 0;
+        }
+
+        int contentH(int modCount) { return modCount * ROWH; }
     }
 
-    private final List<Panel> panels = new ArrayList<>();
-    private Module  setMod   = null;
-    private int     sx, sy, sdox, sdoy;
-    private boolean sDrag    = false;
-    private boolean waitBind = false;
-    private int     dragSlider = -1;
+    private final List<Panel>           panels      = new ArrayList<>();
+    private final Map<Panel, Float>     expandAnim  = new HashMap<>(); // 0..1
+
+    // Настройки
+    private Module  setMod      = null;
+    private int     sx, sy;
+    private boolean sDrag       = false;
+    private int     sdox, sdoy;
+    private boolean waitBind    = false;
+    private int     dragSetting = -1;
+    private float   setScroll   = 0;
+
+    // Анимация открытия
+    private float openProgress = 0; // 0..1
 
     public ClickGUI() {
         super(new StringTextComponent(""));
-        int x = 7;
+    }
+
+    @Override
+    protected void init() {
+        panels.clear();
+        int x = GAP;
         for (Module.Category cat : Module.Category.values()) {
-            if (!CombatClient.moduleManager.getByCategory(cat).isEmpty()) {
-                panels.add(new Panel(cat, x, 7));
-                x += PW + 6;
-            }
+            if (CombatClient.moduleManager.getByCategory(cat).isEmpty()) continue;
+            // Начинаем выше экрана, анимируем вниз
+            panels.add(new Panel(cat, x, -60, GAP));
+            expandAnim.put(panels.get(panels.size()-1), 0f);
+            x += PW + GAP;
         }
-        modAnim = new float[panels.size()][];
-        for (int i = 0; i < panels.size(); i++) {
-            int cnt = CombatClient.moduleManager.getByCategory(panels.get(i).cat).size();
-            modAnim[i] = new float[cnt];
-        }
+        openProgress = 0;
     }
 
     @Override public boolean isPauseScreen() { return false; }
 
-    // ════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
     //  RENDER
-    // ════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
     @Override
     public void render(MatrixStack ms, int mx, int my, float pt) {
-        // Тёмный фон с градиентом
-        fillGradV(ms, 0, 0, width, height, 0xCC000010, 0xCC08001A);
+        // ── Анимация открытия ──────────────────────────────────────────
+        openProgress = Math.min(1f, openProgress + 0.07f);
+        float ease   = easeOut(openProgress);
 
-        // Обновляем анимации
-        for (int pi = 0; pi < panels.size(); pi++) {
-            Panel p = panels.get(pi);
-            List<Module> mods = CombatClient.moduleManager.getByCategory(p.cat);
-            for (int mi = 0; mi < mods.size(); mi++) {
-                float target = mods.get(mi).isEnabled() ? 1f : 0f;
-                modAnim[pi][mi] += (target - modAnim[pi][mi]) * 0.18f;
-            }
+        // Полупрозрачный фон
+        fillGrad(ms, 0, 0, width, height, 0x99000010, 0x99080022);
+
+        for (Panel p : panels) {
+            // Интерполяция позиции Y при открытии
+            p.y += (p.targetY - p.y) * 0.18f;
+
+            // Анимация expand/collapse
+            int modCount = CombatClient.moduleManager.getByCategory(p.cat).size();
+            float fullH  = p.contentH(modCount);
+            float target = p.collapsed ? 0f : fullH;
+            p.animH += (target - p.animH) * 0.22f;
+            if (Math.abs(p.animH - target) < 0.5f) p.animH = target;
+
+            renderPanel(ms, p, mx, my);
         }
 
-        for (int i = 0; i < panels.size(); i++) renderPanel(ms, panels.get(i), i, mx, my);
         if (setMod != null) renderSettings(ms, mx, my);
     }
 
-    private void renderPanel(MatrixStack ms, Panel p, int pi, int mx, int my) {
-        List<Module> mods = CombatClient.moduleManager.getByCategory(p.cat);
-        int bodyH  = p.collapsed ? 0 : mods.size() * ROWH;
-        int totalH = HDRH + bodyH;
+    // ─── Панель ───────────────────────────────────────────────────────
+    private void renderPanel(MatrixStack ms, Panel p, int mx, int my) {
+        int py = (int) p.y;
+        int modCount = CombatClient.moduleManager.getByCategory(p.cat).size();
+        int visibleH = (int) p.animH;
 
-        // Тень панели
-        fillRect(ms, p.x+3, p.y+3, PW, totalH, 0x55000000);
+        // Ограничиваем скролл
+        int maxScroll = Math.max(0, (int) p.contentH(modCount) - Math.min(visibleH, height - py - HDRH - GAP * 2));
+        p.scroll = Math.max(0, Math.min(p.scroll, maxScroll));
 
-        // Фон
-        fillRect(ms, p.x, p.y + HDRH, PW, bodyH, BG);
-
-        // Заголовок с градиентом
-        fillGradV(ms, p.x, p.y, p.x + PW, p.y + HDRH, HDR_TOP, HDR_BOT);
-
-        // Акцентная полоска слева (градиент)
-        fillGradV(ms, p.x, p.y, p.x + 2, p.y + HDRH, ACCENT, ACCENT2);
-
-        // Нижняя линия заголовка
-        fillRect(ms, p.x, p.y + HDRH - 1, PW, 1, 0x44FFFFFF);
-
-        String catName = p.cat.name().charAt(0) + p.cat.name().substring(1).toLowerCase();
-        font.draw(ms, catName, p.x + 8, p.y + 5, ACCENT);
-
-        // Стрелка свернуть/развернуть
-        font.draw(ms, p.collapsed ? "+" : "-", p.x + PW - 10, p.y + 5, TEXT_OFF);
-
-        if (!p.collapsed) {
-            for (int i = 0; i < mods.size(); i++) {
-                Module m  = mods.get(i);
-                int    ry = p.y + HDRH + i * ROWH;
-                boolean hover = inBox(mx, my, p.x, ry, PW, ROWH);
-                float  anim  = modAnim[pi][i];
-
-                // Фон строки
-                if (anim > 0.01f) {
-                    // Плавное свечение включённого модуля
-                    int glowAlpha = (int)(anim * 0x1A);
-                    fillRect(ms, p.x, ry, PW, ROWH, (glowAlpha << 24) | (MOD_GLOW & 0x00FFFFFF));
-                    fillRect(ms, p.x, ry, PW, ROWH, lerpColor(0, MOD_ON, anim));
-                }
-                if (hover && anim < 0.5f) fillRect(ms, p.x, ry, PW, ROWH, HOVER);
-
-                // Цветная полоска слева у включённых
-                if (anim > 0.01f) {
-                    int barColor = lerpColor(0x00000000, ACCENT, anim);
-                    fillRect(ms, p.x, ry, 2, ROWH, barColor | 0xFF000000);
-                }
-
-                // Текст
-                int textColor = lerpColor(TEXT_OFF, TEXT_ON, anim);
-                font.draw(ms, m.getName(), p.x + 8, ry + 3, textColor);
-
-                // Кейбинд
-                if (m.getKeyBind() != GLFW.GLFW_KEY_UNKNOWN) {
-                    String kb = "[" + m.getKeyName() + "]";
-                    font.draw(ms, kb, p.x + PW - font.width(kb) - 4, ry + 3, 0x33AAAACC);
-                }
-
-                // Разделитель
-                if (i < mods.size() - 1)
-                    fillRect(ms, p.x + 2, ry + ROWH - 1, PW - 4, 1, DIVIDER);
-            }
-        }
-
-        // Нижняя акцентная линия
-        fillGradH(ms, p.x, p.y + totalH, p.x + PW, p.y + totalH + 1, ACCENT, ACCENT2);
-    }
-
-    private void renderSettings(MatrixStack ms, int mx, int my) {
-        List<Setting<?>> settings = collectSettings(setMod);
-        int sh = 16 + settings.size() * SROW + SBND + 4;
+        int totalH = HDRH + visibleH;
 
         // Тень
-        fillRect(ms, sx+3, sy+3, SW, sh, 0x66000000);
+        fillA(ms, p.x + 3, py + 3, PW, totalH, 0x66000000);
+        // Основной фон
+        fillA(ms, p.x, py, PW, totalH, BG);
+        // Шапка
+        fillA(ms, p.x, py, PW, HDRH, HDR);
+        // Акцент-полоска слева
+        fillA(ms, p.x, py, 2, HDRH, ACC);
 
-        // Фон
-        fillRect(ms, sx, sy + 16, SW, sh - 16, SET_BG);
+        String catLabel = capitalize(p.cat.name());
+        font.draw(ms, catLabel, p.x + 7, py + 5, ACC);
+        font.draw(ms, p.collapsed ? "+" : "-", p.x + PW - 11, py + 5, SUB);
 
-        // Заголовок с градиентом
-        fillGradV(ms, sx, sy, sx + SW, sy + 16, SET_HDR_T, SET_HDR_B);
-        fillGradV(ms, sx, sy, sx + 2, sy + 16, ACCENT2, ACCENT);
+        // Нижняя линия шапки
+        fillA(ms, p.x, py + HDRH - 1, PW, 1, 0x30FFFFFF);
 
-        font.draw(ms, setMod.getName(), sx + 7, sy + 4, ACCENT2);
-        fillRect(ms, sx, sy + 15, SW, 1, 0x33FFFFFF);
+        // ── Контент с клиппингом ──────────────────────────────────────
+        if (visibleH <= 0) { fillA(ms, p.x, py + totalH, PW, 1, ACC); return; }
 
-        for (int i = 0; i < settings.size(); i++)
-            renderSettingRow(ms, settings.get(i), sy + 16 + i * SROW, mx, my);
+        List<Module> mods = CombatClient.moduleManager.getByCategory(p.cat);
+        int clipTop    = py + HDRH;
+        int clipBottom = clipTop + visibleH;
 
-        // Кейбинд строка
-        int by = sy + 16 + settings.size() * SROW;
-        boolean bhover = inBox(mx, my, sx, by, SW, SBND);
-        if (bhover) fillRect(ms, sx, by, SW, SBND, HOVER);
-        fillRect(ms, sx, by, SW, 1, DIVIDER);
-        String bl = waitBind ? "▶ Press key..." : "⌨ Bind: " + setMod.getKeyName();
-        font.draw(ms, bl, sx + 7, by + 3, waitBind ? 0xFFFFCC00 : TEXT_OFF);
+        enableScissor(p.x, clipTop, p.x + PW, clipBottom);
 
-        // Нижняя линия
-        fillGradH(ms, sx, sy + sh, sx + SW, sy + sh + 1, ACCENT2, ACCENT);
+        for (int i = 0; i < mods.size(); i++) {
+            Module m = mods.get(i);
+            int ry = clipTop + i * ROWH - (int) p.scroll;
+            if (ry + ROWH < clipTop || ry > clipBottom) continue;
+
+            boolean hover = mx >= p.x && mx < p.x + PW && my >= ry && my < ry + ROWH;
+            if (m.isEnabled())  fillA(ms, p.x, ry, PW, ROWH, ON_BG);
+            else if (hover)     fillA(ms, p.x, ry, PW, ROWH, HOVER_BG);
+            if (m.isEnabled())  fillA(ms, p.x, ry, 2, ROWH, ACC2);
+
+            int tc = m.isEnabled() ? TXT : SUB;
+            font.draw(ms, m.getName(), p.x + 7, ry + 3, tc);
+
+            if (m.getKeyBind() != GLFW.GLFW_KEY_UNKNOWN) {
+                String kb = m.getKeyName();
+                font.draw(ms, kb, p.x + PW - font.width(kb) - 4, ry + 3, 0x44AAAACC);
+            }
+
+            if (i < mods.size() - 1) fillA(ms, p.x + 4, ry + ROWH - 1, PW - 8, 1, SEP);
+        }
+
+        disableScissor();
+
+        // Нижняя граница-акцент
+        fillA(ms, p.x, py + totalH, PW, 1, ACC);
+
+        // Полоска скролла если нужно
+        if (maxScroll > 0) {
+            float ratio  = p.scroll / maxScroll;
+            int   trackH = visibleH;
+            int   thumbH = Math.max(12, trackH * trackH / (int) p.contentH(modCount));
+            int   thumbY = clipTop + (int)((trackH - thumbH) * ratio);
+            fillA(ms, p.x + PW - 3, clipTop, 2, trackH, 0x22FFFFFF);
+            fillA(ms, p.x + PW - 3, thumbY,  2, thumbH, ACC);
+        }
+    }
+
+    // ─── Окно настроек ─────────────────────────────────────────────────
+    private void renderSettings(MatrixStack ms, int mx, int my) {
+        List<Setting<?>> sets = collectSettings(setMod);
+        int contentH = sets.size() * SROW + SBIND_H + 4;
+        int visH     = Math.min(contentH, height - sy - HDRH - 8);
+        int maxScroll= Math.max(0, contentH - visH);
+        setScroll = Math.max(0, Math.min(setScroll, maxScroll));
+        int totalH = HDRH + visH;
+
+        // Тень
+        fillA(ms, sx + 3, sy + 3, SW, totalH, 0x77000000);
+        fillA(ms, sx,     sy,     SW, totalH, SBG);
+        fillA(ms, sx,     sy,     SW, HDRH,   SHDR);
+        fillA(ms, sx,     sy,     2,  HDRH,   ACC2);
+
+        font.draw(ms, setMod.getName(), sx + 6, sy + 5, ACC);
+
+        int clipT = sy + HDRH, clipB = clipT + visH;
+        enableScissor(sx, clipT, sx + SW, clipB);
+
+        for (int i = 0; i < sets.size(); i++) {
+            int ry = clipT + i * SROW - (int) setScroll;
+            if (ry + SROW >= clipT && ry <= clipB)
+                renderSetRow(ms, sets.get(i), i, ry, mx, my);
+        }
+
+        // Бинд строка
+        int by = clipT + sets.size() * SROW - (int) setScroll;
+        if (by >= clipT && by <= clipB) {
+            boolean bh = in(mx, my, sx, by, SW, SBIND_H);
+            if (bh) fillA(ms, sx, by, SW, SBIND_H, HOVER_BG);
+            String bl = waitBind ? "Press key..." : "Bind: " + setMod.getKeyName();
+            font.draw(ms, bl, sx + 6, by + 4, waitBind ? 0xFFFFAA00 : SUB);
+        }
+
+        disableScissor();
+
+        fillA(ms, sx, sy + totalH, SW, 1, ACC2);
+
+        // Скролл
+        if (maxScroll > 0) {
+            float ratio = setScroll / maxScroll;
+            int tH      = visH;
+            int thH     = Math.max(10, tH * tH / contentH);
+            int thY     = clipT + (int)((tH - thH) * ratio);
+            fillA(ms, sx + SW - 3, clipT, 2, tH,  0x22FFFFFF);
+            fillA(ms, sx + SW - 3, thY,   2, thH, ACC2);
+        }
     }
 
     @SuppressWarnings("unchecked")
-    private void renderSettingRow(MatrixStack ms, Setting<?> s, int ry, int mx, int my) {
-        boolean hover = inBox(mx, my, sx, ry, SW, SROW);
-        if (hover) fillRect(ms, sx, ry, SW, SROW, HOVER);
-        fillRect(ms, sx, ry + SROW - 1, SW, 1, DIVIDER);
+    private void renderSetRow(MatrixStack ms, Setting<?> s, int idx, int ry, int mx, int my) {
+        boolean hov = in(mx, my, sx, ry, SW, SROW);
+        if (hov) fillA(ms, sx, ry, SW, SROW, HOVER_BG);
 
-        font.draw(ms, s.getName(), sx + 7, ry + 4, TEXT_OFF);
+        font.draw(ms, s.getName(), sx + 6, ry + 5, SUB);
 
-        Setting.Type type = s.getType();
-        if (type == Setting.Type.TOGGLE) {
+        Setting.Type t = s.getType();
+        if (t == Setting.Type.TOGGLE) {
             boolean v = (Boolean) s.getValue();
-            // Красивый тоггл
-            int toggleX = sx + SW - 28;
-            int toggleY = ry + 4;
-            int tw = 22, th = 8;
-            fillRect(ms, toggleX, toggleY, tw, th, v ? 0xFF2A2A50 : 0xFF222230);
-            // Ползунок
-            int knobX = v ? toggleX + tw - th : toggleX;
-            fillRect(ms, knobX, toggleY, th, th, v ? ACCENT : 0xFF555568);
-            // Текст
-            font.draw(ms, v ? "ON" : "OFF", sx + SW - font.width(v ? "ON" : "OFF") - 34, ry + 4,
-                    v ? 0xFF88DDAA : 0xFFDD8888);
+            font.draw(ms, v ? "ON" : "OFF", sx + SW - font.width(v?"ON":"OFF") - 6, ry + 5, v ? 0xFF55FF55 : 0xFFFF5555);
 
-        } else if (type == Setting.Type.ENUM) {
-            String lbl = "< " + ((Enum<?>) s.getValue()).name() + " >";
-            font.draw(ms, lbl, sx + SW - font.width(lbl) - 6, ry + 4, 0xFFFFD966);
+        } else if (t == Setting.Type.ENUM) {
+            String lbl = ((Enum<?>) s.getValue()).name();
+            font.draw(ms, lbl, sx + SW - font.width(lbl) - 6, ry + 5, 0xFFFFD700);
 
-        } else if (type == Setting.Type.SLIDER_INT || type == Setting.Type.SLIDER_FLOAT) {
-            double val = s.getValue() instanceof Float ? (Float) s.getValue() : (Integer) s.getValue();
-            int bx  = sx + 7, bw = SW - 14, by2 = ry + 12, bh = 3;
-            double ratio = (val - s.getMin()) / (s.getMax() - s.getMin());
-            int filled = (int)(ratio * bw);
+        } else if (t == Setting.Type.SLIDER_INT || t == Setting.Type.SLIDER_FLOAT) {
+            double val    = s.getValue() instanceof Float ? (Float) s.getValue() : (Integer) s.getValue();
+            int barX      = sx + 6, barW = SW - 14, barY = ry + 12, barH = 3;
+            int filled    = (int)((val - s.getMin()) / (s.getMax() - s.getMin()) * barW);
 
-            // Трек
-            fillRect(ms, bx, by2, bw, bh, SL_TRACK);
-            // Заполненная часть с градиентом
-            fillGradH(ms, bx, by2, bx + filled, by2 + bh, ACCENT, ACCENT2);
-            // Ползунок
-            fillRect(ms, bx + filled - 2, by2 - 1, 5, bh + 2, SL_THUMB);
+            fillA(ms, barX, barY, barW, barH, SLBG);
+            fillA(ms, barX, barY, Math.max(0, filled), barH, SLFG);
+            // Ручка
+            fillA(ms, barX + filled - 2, barY - 2, 5, barH + 4, 0xFFCCCCFF);
 
-            // Значение
             String vs = s.getValue() instanceof Float
                     ? String.format("%.2f", val) : String.valueOf((int) val);
-            font.draw(ms, vs, sx + SW - font.width(vs) - 6, ry + 4, TEXT_ON);
+            font.draw(ms, vs, sx + SW - font.width(vs) - 6, ry + 5, TXT);
         }
+
+        if (idx > 0) fillA(ms, sx + 4, ry, SW - 8, 1, SEP);
     }
 
-    // ════════════════════════════════════════════════════════════
-    //  MOUSE
-    // ════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
+    //  MOUSE EVENTS
+    // ═══════════════════════════════════════════════════════════════════
     @Override
     public boolean mouseClicked(double mx, double my, int btn) {
-        if (setMod != null && inBox((int)mx,(int)my, sx, sy, SW, 16) && btn==0) {
-            sDrag=true; sdox=(int)(mx-sx); sdoy=(int)(my-sy); return true;
+        // Тащим окно настроек за шапку
+        if (setMod != null && in((int)mx,(int)my, sx, sy, SW, HDRH) && btn == 0) {
+            sDrag = true; sdox=(int)(mx-sx); sdoy=(int)(my-sy); return true;
         }
+        // Клик по настройкам
         if (setMod != null) {
-            if (handleSettingsClick((int)mx,(int)my,btn)) return true;
-            setMod=null; waitBind=false; return true;
+            if (handleSetClick((int)mx,(int)my,btn)) return true;
+            setMod = null; waitBind = false; return true;
         }
+
         for (Panel p : panels) {
-            if (inBox((int)mx,(int)my, p.x, p.y, PW, HDRH)) {
-                if (btn==0) { p.dragging=true; p.dox=(int)(mx-p.x); p.doy=(int)(my-p.y); }
+            int py = (int) p.y;
+            // Шапка
+            if (in((int)mx,(int)my, p.x, py, PW, HDRH)) {
+                if (btn==0) { p.dragging=true; p.dox=(int)(mx-p.x); p.doy=(int)(my-py); }
                 else if (btn==1) p.collapsed = !p.collapsed;
                 return true;
             }
-            if (!p.collapsed) {
+            // Строки модулей
+            if (!p.collapsed && p.animH > 1) {
+                int clipT = py + HDRH;
+                int clipB = clipT + (int) p.animH;
+                if ((int)mx < p.x || (int)mx >= p.x + PW || (int)my < clipT || (int)my >= clipB) continue;
                 List<Module> mods = CombatClient.moduleManager.getByCategory(p.cat);
                 for (int i = 0; i < mods.size(); i++) {
-                    int ry = p.y + HDRH + i * ROWH;
-                    if (inBox((int)mx,(int)my, p.x, ry, PW, ROWH)) {
-                        if (btn==0) mods.get(i).toggle();
-                        else if (btn==1) {
-                            setMod=mods.get(i);
-                            sx=(int)mx+4; sy=(int)my-8; waitBind=false; dragSlider=-1;
-                        }
-                        return true;
+                    int ry = clipT + i * ROWH - (int) p.scroll;
+                    if (!in((int)mx,(int)my, p.x, ry, PW, ROWH)) continue;
+                    if (btn==0) mods.get(i).toggle();
+                    else if (btn==1) {
+                        setMod = mods.get(i);
+                        sx = Math.min((int)mx + 4, width - SW - 4);
+                        sy = Math.max(4, (int)my - 10);
+                        waitBind = false; dragSetting = -1; setScroll = 0;
                     }
+                    return true;
                 }
             }
         }
@@ -291,32 +340,44 @@ public class ClickGUI extends Screen {
     }
 
     @SuppressWarnings("unchecked")
-    private boolean handleSettingsClick(int mx, int my, int btn) {
-        List<Setting<?>> settings = collectSettings(setMod);
-        for (int i = 0; i < settings.size(); i++) {
-            Setting<?> s = settings.get(i);
-            int ry = sy + 16 + i * SROW;
-            if (!inBox(mx,my,sx,ry,SW,SROW)) continue;
+    private boolean handleSetClick(int mx, int my, int btn) {
+        List<Setting<?>> sets = collectSettings(setMod);
+        int clipT = sy + HDRH;
+
+        for (int i = 0; i < sets.size(); i++) {
+            Setting<?> s = sets.get(i);
+            int ry = clipT + i * SROW - (int) setScroll;
+            if (!in(mx,my,sx,ry,SW,SROW)) continue;
             Setting.Type t = s.getType();
-            if (t == Setting.Type.TOGGLE && btn==0)
-                { Setting<Boolean> sb=(Setting<Boolean>)s; sb.setValue(!sb.getValue()); }
-            else if (t == Setting.Type.ENUM && btn==0) s.cycleEnum();
-            else if (t == Setting.Type.SLIDER_INT || t == Setting.Type.SLIDER_FLOAT)
-                { dragSlider=i; applySlider(s,mx); }
+            if (t == Setting.Type.TOGGLE && btn==0) {
+                Setting<Boolean> sb = (Setting<Boolean>) s; sb.setValue(!sb.getValue());
+            } else if (t == Setting.Type.ENUM && btn==0) {
+                s.cycleEnum();
+            } else if (t==Setting.Type.SLIDER_INT || t==Setting.Type.SLIDER_FLOAT) {
+                dragSetting = i; applySlider(s, mx);
+            }
             return true;
         }
-        int by = sy + 16 + settings.size() * SROW;
-        if (inBox(mx,my,sx,by,SW,SBND) && btn==0) { waitBind=true; return true; }
+        // Бинд
+        int by = clipT + sets.size() * SROW - (int) setScroll;
+        if (in(mx,my,sx,by,SW,SBIND_H) && btn==0) { waitBind=true; return true; }
         return false;
     }
 
     @Override
     public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
         if (sDrag) { sx=(int)(mx-sdox); sy=(int)(my-sdoy); return true; }
-        for (Panel p : panels) if (p.dragging) { p.x=(int)(mx-p.dox); p.y=(int)(my-p.doy); return true; }
-        if (dragSlider>=0 && setMod!=null) {
-            List<Setting<?>> s=collectSettings(setMod);
-            if (dragSlider<s.size()) applySlider(s.get(dragSlider),(int)mx);
+        for (Panel p : panels) {
+            if (p.dragging) {
+                p.x = (int)(mx - p.dox);
+                p.y = (int)(my - p.doy);
+                p.targetY = p.y;
+                return true;
+            }
+        }
+        if (dragSetting >= 0 && setMod != null) {
+            List<Setting<?>> s = collectSettings(setMod);
+            if (dragSetting < s.size()) applySlider(s.get(dragSetting), (int)mx);
             return true;
         }
         return super.mouseDragged(mx,my,btn,dx,dy);
@@ -324,94 +385,119 @@ public class ClickGUI extends Screen {
 
     @Override
     public boolean mouseReleased(double mx, double my, int btn) {
-        sDrag=false; dragSlider=-1;
-        for (Panel p : panels) p.dragging=false;
+        sDrag = false; dragSetting = -1;
+        for (Panel p : panels) p.dragging = false;
         return super.mouseReleased(mx,my,btn);
     }
 
+    @Override
+    public boolean mouseScrolled(double mx, double my, double delta) {
+        // Скролл окна настроек
+        if (setMod != null && in((int)mx,(int)my, sx, sy, SW, height)) {
+            setScroll -= (float)(delta * 12);
+            return true;
+        }
+        // Скролл панели
+        for (Panel p : panels) {
+            int py = (int) p.y;
+            if (in((int)mx,(int)my, p.x, py, PW, HDRH + (int)p.animH)) {
+                p.scroll -= (float)(delta * 12);
+                return true;
+            }
+        }
+        return super.mouseScrolled(mx, my, delta);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  KEY EVENTS
+    // ═══════════════════════════════════════════════════════════════════
+    @Override
+    public boolean keyPressed(int key, int scan, int mods) {
+        if (waitBind && setMod != null) {
+            if (key==GLFW.GLFW_KEY_ESCAPE || key==GLFW.GLFW_KEY_DELETE)
+                setMod.setKeyBind(GLFW.GLFW_KEY_UNKNOWN);
+            else setMod.setKeyBind(key);
+            waitBind = false; return true;
+        }
+        if (key == GLFW.GLFW_KEY_ESCAPE) {
+            if (setMod != null) { setMod = null; return true; }
+            onClose(); return true;
+        }
+        return super.keyPressed(key, scan, mods);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  УТИЛИТЫ
+    // ═══════════════════════════════════════════════════════════════════
     @SuppressWarnings("unchecked")
     private void applySlider(Setting<?> s, int mx) {
-        double ratio = Math.max(0, Math.min(1.0, (mx - sx - 7) / (double)(SW - 14)));
+        double ratio = Math.max(0, Math.min(1.0, (mx - sx - 6) / (double)(SW - 14)));
         double val   = s.getMin() + ratio * (s.getMax() - s.getMin());
         if (s.getValue() instanceof Float) ((Setting<Float>)s).setValue((float)val);
         else ((Setting<Integer>)s).setValue((int)Math.round(val));
     }
 
-    // ════════════════════════════════════════════════════════════
-    //  KEYS
-    // ════════════════════════════════════════════════════════════
-    @Override
-    public boolean keyPressed(int key, int scan, int mods) {
-        if (waitBind && setMod!=null) {
-            setMod.setKeyBind(key==GLFW.GLFW_KEY_ESCAPE||key==GLFW.GLFW_KEY_DELETE
-                    ? GLFW.GLFW_KEY_UNKNOWN : key);
-            waitBind=false; return true;
-        }
-        if (key==GLFW.GLFW_KEY_ESCAPE) {
-            if (setMod!=null) { setMod=null; return true; }
-            onClose(); return true;
-        }
-        return super.keyPressed(key,scan,mods);
-    }
-
-    // ════════════════════════════════════════════════════════════
-    //  УТИЛИТЫ
-    // ════════════════════════════════════════════════════════════
     private List<Setting<?>> collectSettings(Module m) {
         List<Setting<?>> list = new ArrayList<>();
         for (java.lang.reflect.Field f : m.getClass().getDeclaredFields()) {
             f.setAccessible(true);
-            try { Object v=f.get(m); if(v instanceof Setting) list.add((Setting<?>)v); }
+            try { Object v = f.get(m); if (v instanceof Setting) list.add((Setting<?>)v); }
             catch (IllegalAccessException ignored) {}
         }
         return list;
     }
 
-    private boolean inBox(int mx, int my, int x, int y, int w, int h) {
-        return mx>=x && mx<x+w && my>=y && my<y+h;
+    private boolean in(int mx, int my, int x, int y, int w, int h) {
+        return mx >= x && mx < x+w && my >= y && my < y+h;
     }
 
-    private void fillRect(MatrixStack ms, int x, int y, int w, int h, int color) {
-        if (w<=0 || h<=0) return;
-        fill(ms, x, y, x+w, y+h, color);
+    private void fillA(MatrixStack ms, int x, int y, int w, int h, int c) {
+        if (w <= 0 || h <= 0) return;
+        fill(ms, x, y, x+w, y+h, c);
     }
 
-    /** Линейная интерполяция двух ARGB цветов */
-    private int lerpColor(int c1, int c2, float t) {
-        int a1=(c1>>24)&0xFF, r1=(c1>>16)&0xFF, g1=(c1>>8)&0xFF, b1=c1&0xFF;
-        int a2=(c2>>24)&0xFF, r2=(c2>>16)&0xFF, g2=(c2>>8)&0xFF, b2=c2&0xFF;
-        int a=(int)(a1+(a2-a1)*t), r=(int)(r1+(r2-r1)*t),
-            g=(int)(g1+(g2-g1)*t), b=(int)(b1+(b2-b1)*t);
-        return (a<<24)|(r<<16)|(g<<8)|b;
+    private String capitalize(String s) {
+        if (s == null || s.isEmpty()) return s;
+        return s.charAt(0) + s.substring(1).toLowerCase();
     }
 
-    private void fillGradV(MatrixStack ms, int x1, int y1, int x2, int y2, int top, int bot) {
-        drawGradient(ms, x1, y1, x2, y2, top, bot, true);
+    private float easeOut(float t) {
+        return 1f - (1f - t) * (1f - t);
     }
 
-    private void fillGradH(MatrixStack ms, int x1, int y1, int x2, int y2, int left, int right) {
-        drawGradient(ms, x1, y1, x2, y2, left, right, false);
-    }
+    /** Градиент сверху-вниз через GL-тесселятор (правильные имена методов 1.16.5). */
+    private void fillGrad(MatrixStack ms, int x1, int y1, int x2, int y2, int top, int bot) {
+        float at=((top>>24)&0xFF)/255f, rt=((top>>16)&0xFF)/255f,
+              gt=((top>>8)&0xFF)/255f,  bt=(top&0xFF)/255f;
+        float ab=((bot>>24)&0xFF)/255f, rb=((bot>>16)&0xFF)/255f,
+              gb=((bot>>8)&0xFF)/255f,  bb=(bot&0xFF)/255f;
 
-    private void drawGradient(MatrixStack ms, int x1, int y1, int x2, int y2, int c1, int c2, boolean vertical) {
-        float a1=((c1>>24)&0xFF)/255f, r1=((c1>>16)&0xFF)/255f, g1=((c1>>8)&0xFF)/255f, b1=(c1&0xFF)/255f;
-        float a2=((c2>>24)&0xFF)/255f, r2=((c2>>16)&0xFF)/255f, g2=((c2>>8)&0xFF)/255f, b2=(c2&0xFF)/255f;
         RenderSystem.enableBlend(); RenderSystem.disableTexture(); RenderSystem.defaultBlendFunc();
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder buf = tess.getBuilder();
         buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
-        if (vertical) {
-            buf.vertex(x1,y1,0).color(r1,g1,b1,a1).endVertex();
-            buf.vertex(x1,y2,0).color(r2,g2,b2,a2).endVertex();
-            buf.vertex(x2,y2,0).color(r2,g2,b2,a2).endVertex();
-            buf.vertex(x2,y1,0).color(r1,g1,b1,a1).endVertex();
-        } else {
-            buf.vertex(x1,y1,0).color(r1,g1,b1,a1).endVertex();
-            buf.vertex(x1,y2,0).color(r1,g1,b1,a1).endVertex();
-            buf.vertex(x2,y2,0).color(r2,g2,b2,a2).endVertex();
-            buf.vertex(x2,y1,0).color(r1,g1,b1,a1).endVertex();
-        }
+        buf.vertex(x1,y1,0).color(rt,gt,bt,at).endVertex();
+        buf.vertex(x1,y2,0).color(rb,gb,bb,ab).endVertex();
+        buf.vertex(x2,y2,0).color(rb,gb,bb,ab).endVertex();
+        buf.vertex(x2,y1,0).color(rt,gt,bt,at).endVertex();
         tess.end();
         RenderSystem.enableTexture(); RenderSystem.disableBlend();
+    }
+
+    /** OpenGL scissor test — обрезаем рендер за границей панели. */
+    private void enableScissor(int x1, int y1, int x2, int y2) {
+        double scale = minecraft.getWindow().getGuiScale();
+        int winH = minecraft.getWindow().getHeight();
+        GL11.glEnable(GL11.GL_SCISSOR_TEST);
+        GL11.glScissor(
+            (int)(x1 * scale),
+            (int)(winH - y2 * scale),
+            (int)((x2 - x1) * scale),
+            (int)((y2 - y1) * scale)
+        );
+    }
+
+    private void disableScissor() {
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);
     }
 }
