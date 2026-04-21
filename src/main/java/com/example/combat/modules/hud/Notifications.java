@@ -2,7 +2,6 @@ package com.example.combat.modules.hud;
 
 import com.example.combat.modules.Module;
 import com.mojang.blaze3d.matrix.MatrixStack;
-import net.minecraft.client.gui.FontRenderer;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
@@ -12,21 +11,16 @@ import java.util.Queue;
 
 public class Notifications extends Module {
 
-    // Plain class instead of Java 16 record
     public static class Notif {
         private final String text;
         private final long   expiry;
         private final int    color;
-
         public Notif(String text, long expiry, int color) {
-            this.text   = text;
-            this.expiry = expiry;
-            this.color  = color;
+            this.text = text; this.expiry = expiry; this.color = color;
         }
-
-        public String getText()  { return text; }
-        public long   getExpiry(){ return expiry; }
-        public int    getColor() { return color; }
+        public String getText()   { return text; }
+        public long   getExpiry() { return expiry; }
+        public int    getColor()  { return color; }
     }
 
     private static final Queue<Notif> queue = new LinkedList<>();
@@ -40,7 +34,7 @@ public class Notifications extends Module {
     }
 
     public Notifications() {
-        super("Notifications", "Shows module toggle notifications on screen", Category.HUD);
+        super("Notifications", "Shows module toggle notifications", Category.HUD);
     }
 
     @SubscribeEvent
@@ -50,17 +44,14 @@ public class Notifications extends Module {
 
         long now = System.currentTimeMillis();
         Iterator<Notif> it = queue.iterator();
-        while (it.hasNext()) {
-            if (now > it.next().getExpiry()) it.remove();
-        }
+        while (it.hasNext()) { if (now > it.next().getExpiry()) it.remove(); }
 
-        MatrixStack ms  = event.getMatrixStack();
-        FontRenderer fr = mc.fontRenderer;
-        int sw = mc.getMainWindow().getScaledWidth();
+        MatrixStack ms = event.getMatrixStack();
+        int sw = mc.getWindow().getGuiScaledWidth();
         int i  = 0;
         for (Notif n : queue) {
-            fr.drawStringWithShadow(ms, n.getText(),
-                sw - fr.getStringWidth(n.getText()) - 4, 4 + i * 12, n.getColor());
+            int tw = mc.font.width(n.getText());
+            mc.font.drawShadow(ms, n.getText(), sw - tw - 4, 4 + i * 12, n.getColor());
             i++;
         }
     }

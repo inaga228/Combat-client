@@ -15,6 +15,6 @@ public class FastPlace extends Module {
     @SubscribeEvent
     public void onTick(TickEvent.ClientTickEvent event) {
         if (!isEnabled() || mc.player == null) return;
-        mc.rightClickDelayTimer = delay.getValue();
+        mc.rightClickDelay = delay.getValue();
     }
 }

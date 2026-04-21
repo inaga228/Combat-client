@@ -4,7 +4,6 @@ import com.example.combat.modules.Module;
 import com.example.combat.modules.Setting;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.monster.IMob;
-import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.AxisAlignedBB;
@@ -21,19 +20,19 @@ public class KillAura extends Module {
 
     public enum TargetMode { PLAYERS, MOBS, ALL }
 
-    public final Setting<Float>      range       = new Setting<>("Range", 3.0f).range(2.0, 6.0);
-    public final Setting<TargetMode> targetMode  = new Setting<>("Targets", TargetMode.PLAYERS);
-    public final Setting<Integer>    minCps      = new Setting<>("CPS Min", 8).range(1, 20);
-    public final Setting<Integer>    maxCps      = new Setting<>("CPS Max", 12).range(1, 20);
-    public final Setting<Boolean>    smoothRot   = new Setting<>("SmoothRot", true);
-    public final Setting<Float>      smoothSpd   = new Setting<>("SmoothSpd", 0.25f).range(0.05f, 1.0f);
-    public final Setting<Boolean>    raytrace    = new Setting<>("Raytrace", true);
-    public final Setting<Boolean>    autoSwitch  = new Setting<>("AutoSwitch", true);
+    public final Setting<Float>      range      = new Setting<>("Range",      3.0f).range(2.0, 6.0);
+    public final Setting<TargetMode> targetMode = new Setting<>("Targets",    TargetMode.PLAYERS);
+    public final Setting<Integer>    minCps     = new Setting<>("CPS Min",    8).range(1, 20);
+    public final Setting<Integer>    maxCps     = new Setting<>("CPS Max",    12).range(1, 20);
+    public final Setting<Boolean>    smoothRot  = new Setting<>("SmoothRot",  true);
+    public final Setting<Float>      smoothSpd  = new Setting<>("SmoothSpd",  0.25f).range(0.05f, 1.0f);
+    public final Setting<Boolean>    raytrace   = new Setting<>("Raytrace",   true);
+    public final Setting<Boolean>    autoSwitch = new Setting<>("AutoSwitch", true);
 
     private static final Random random = new Random();
-    private long   lastAttackMs    = 0;
-    private long   lastSlotChangeMs = 0;
-    private float  targetYaw, targetPitch;
+    private long  lastAttackMs     = 0;
+    private long  lastSlotChangeMs = 0;
+    private float targetYaw, targetPitch;
 
     public KillAura() {
         super("KillAura", "Automatically attacks nearby entities", Category.COMBAT);
@@ -41,7 +40,7 @@ public class KillAura extends Module {
 
     @Override
     public void onUpdate() {
-        if (mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.level == null) return;
 
         LivingEntity target = getBestTarget();
         if (target == null) return;
@@ -60,14 +59,14 @@ public class KillAura extends Module {
 
         // Поворот
         if (smoothRot.getValue()) {
-            float yawDiff   = MathHelper.wrapDegrees(targetYaw   - mc.player.rotationYaw);
-            float pitchDiff = MathHelper.wrapDegrees(targetPitch - mc.player.rotationPitch);
-            mc.player.rotationYaw   += yawDiff   * smoothSpd.getValue();
-            mc.player.rotationPitch += pitchDiff * smoothSpd.getValue();
-            mc.player.rotationPitch  = MathHelper.clamp(mc.player.rotationPitch, -90f, 90f);
+            float yawDiff   = MathHelper.wrapDegrees(targetYaw   - mc.player.yRot);
+            float pitchDiff = MathHelper.wrapDegrees(targetPitch - mc.player.xRot);
+            mc.player.yRot += yawDiff   * smoothSpd.getValue();
+            mc.player.xRot += pitchDiff * smoothSpd.getValue();
+            mc.player.xRot  = MathHelper.clamp(mc.player.xRot, -90f, 90f);
         } else {
-            mc.player.rotationYaw   = targetYaw;
-            mc.player.rotationPitch = targetPitch;
+            mc.player.yRot = targetYaw;
+            mc.player.xRot = targetPitch;
         }
 
         // Рандомизированный CPS с джиттером
@@ -79,14 +78,14 @@ public class KillAura extends Module {
         delayMs += random.nextInt(Math.max(1, (int)(delayMs * 0.2f))) - (int)(delayMs * 0.1f);
 
         if (mc.player.getAttackStrengthScale(0) >= 0.98f && (now - lastAttackMs) >= delayMs) {
-            mc.playerController.attackEntity(mc.player, target);
-            mc.player.swingArm(Hand.MAIN_HAND);
+            mc.gameMode.attack(mc.player, target);
+            mc.player.swing(Hand.MAIN_HAND);
             lastAttackMs = now;
         }
     }
 
     private void calculateAngles(LivingEntity target) {
-        Vector3d targetPos = target.getPositionVec().add(0, target.getBbHeight() * 0.5, 0);
+        Vector3d targetPos = target.position().add(0, target.getBbHeight() * 0.5, 0);
         Vector3d delta     = targetPos.subtract(mc.player.getEyePosition(1f));
         float yaw   = (float) Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90f;
         float pitch = (float) -Math.toDegrees(
@@ -95,8 +94,8 @@ public class KillAura extends Module {
 
         // GCD коррекция
         float div = 0.15f;
-        yaw   = mc.player.rotationYaw   + (float)(Math.round((yaw   - mc.player.rotationYaw)   / div) * div);
-        pitch = mc.player.rotationPitch + (float)(Math.round((pitch - mc.player.rotationPitch) / div) * div);
+        yaw   = mc.player.yRot + (float)(Math.round((yaw   - mc.player.yRot) / div) * div);
+        pitch = mc.player.xRot + (float)(Math.round((pitch - mc.player.xRot) / div) * div);
 
         targetYaw   = yaw;
         targetPitch = pitch;
@@ -107,7 +106,7 @@ public class KillAura extends Module {
         AxisAlignedBB aabb = mc.player.getBoundingBox().inflate(r, r, r);
         Vector3d eyePos = mc.player.getEyePosition(1f);
 
-        List<LivingEntity> candidates = mc.world.getEntitiesWithinAABB(LivingEntity.class, aabb, e -> {
+        List<LivingEntity> candidates = mc.level.getEntitiesOfClass(LivingEntity.class, aabb, e -> {
             if (e == mc.player) return false;
             if (!e.isAlive() || e.getHealth() <= 0) return false;
             if (mc.player.distanceTo(e) > r) return false;
@@ -119,16 +118,16 @@ public class KillAura extends Module {
             if (raytrace.getValue()) {
                 float h = e.getBbHeight();
                 Vector3d[] pts = {
-                    e.getPositionVec().add(0, h * 0.9, 0),
-                    e.getPositionVec().add(0, h * 0.5, 0),
-                    e.getPositionVec().add(0, h * 0.1, 0)
+                    e.position().add(0, h * 0.9, 0),
+                    e.position().add(0, h * 0.5, 0),
+                    e.position().add(0, h * 0.1, 0)
                 };
                 for (Vector3d pt : pts) {
                     RayTraceContext ctx = new RayTraceContext(
                             eyePos, pt,
                             RayTraceContext.BlockMode.COLLIDER,
                             RayTraceContext.FluidMode.NONE, mc.player);
-                    if (mc.world.rayTrace(ctx).getType() != RayTraceResult.Type.BLOCK)
+                    if (mc.level.clip(ctx).getType() != RayTraceResult.Type.BLOCK)
                         return true;
                 }
                 return false;
@@ -145,7 +144,7 @@ public class KillAura extends Module {
         int    bestSlot   = -1;
         double bestDamage = 0;
         for (int i = 0; i < 9; i++) {
-            var stack = mc.player.inventory.items.get(i);
+            net.minecraft.item.ItemStack stack = mc.player.inventory.items.get(i);
             if (stack.getItem() instanceof net.minecraft.item.SwordItem) {
                 double dmg = ((net.minecraft.item.SwordItem) stack.getItem()).getDamage();
                 if (dmg > bestDamage) { bestDamage = dmg; bestSlot = i; }
