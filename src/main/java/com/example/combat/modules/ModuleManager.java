@@ -4,10 +4,12 @@ import com.example.combat.modules.combat.AutoTotem;
 import com.example.combat.modules.combat.Criticals;
 import com.example.combat.modules.combat.CrystalAura;
 import com.example.combat.modules.combat.KillAura;
-import com.example.combat.modules.hud.Notifications;
+import com.example.combat.modules.hud.*;
 import com.example.combat.modules.player.FastPlace;
 import com.example.combat.modules.renderer.BetterTab;
+import com.example.combat.modules.renderer.ESP;
 import com.example.combat.modules.renderer.HandView;
+import com.example.combat.modules.renderer.ItemPhysics;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,9 +28,17 @@ public class ModuleManager {
         register(new FastPlace());
         // Renderer
         register(new BetterTab());
+        register(new ESP());
         register(new HandView());
+        register(new ItemPhysics());
         // HUD
         register(new Notifications());
+        register(new WatermarkHud());
+        register(new FpsHud());
+        register(new ModuleListHud());
+        register(new TargetHud());
+        register(new TotemHud());
+        register(new CrystalHud());
     }
 
     private void register(Module m) { modules.add(m); }

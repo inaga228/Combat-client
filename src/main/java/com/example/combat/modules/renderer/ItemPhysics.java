@@ -8,10 +8,12 @@ import net.minecraft.client.renderer.model.IBakedModel;
 import net.minecraft.client.renderer.model.ItemCameraTransforms;
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.util.math.vector.Vector3f;
-import net.minecraftforge.client.event.RenderLivingEvent;
-import net.minecraftforge.client.event.RenderNameplateEvent;
+import net.minecraftforge.client.event.RenderItemEntityEvent;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
+import net.minecraftforge.event.entity.EntityLeaveWorldEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.HashMap;
@@ -19,140 +21,98 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * ItemPhysics — Forge 1.16.5
+ * ItemPhysics — Forge 1.16.5.
  *
- * В Forge нет события для отмены рендера ItemEntity отдельно.
- * ItemEntity — не LivingEntity, поэтому RenderLivingEvent не подходит.
- *
- * Решение: используем net.minecraftforge.client.event.RenderItemInFrameEvent
- * и для выпавших предметов — подписываемся на специфичный рендер.
- *
- * Для ItemEntity в Forge 1.16.5 единственный способ без mixin —
- * перехватить через RenderWorldLastEvent и нарисовать поверх
- * с правильной трансформацией (предмет лежит на земле).
- *
- * Ключевое отличие от старой версии:
- * - Берём реальную позицию предмета правильно
- * - Не смещаем дважды
- * - Убираем боббинг через translate
+ * Forge предоставляет RenderItemEntityEvent — он вызывается вместо
+ * стандартного рендера ItemEntity и позволяет его отменить (event.setCanceled).
+ * Мы отменяем ванильный рендер и рисуем предмет сами — плоско, на земле.
  */
 public class ItemPhysics extends Module {
 
-    private static final float PIXEL = 1f / 16f;
+    public final Setting<Boolean> randomRotation = new Setting<>("RandomRot", true);
 
-    public final Setting<Boolean> randomRotation = new Setting<>("RandomRot",  true);
-    public final Setting<Boolean> flatMode       = new Setting<>("FlatItems",  true);
-
-    private final Map<Integer, Float> angles = new HashMap<>();
+    private final Map<Integer, Float> itemAngles = new HashMap<>();
     private final Random rand = new Random();
 
     public ItemPhysics() {
-        super("ItemPhysics", "Items on ground lay flat instead of spinning", Category.RENDERER);
+        super("ItemPhysics", "Items lie flat on ground instead of spinning", Category.RENDERER);
     }
 
     @Override
-    public void onDisable() {
-        angles.clear();
-    }
+    public void onDisable() { itemAngles.clear(); }
 
-    /**
-     * Форж 1.16.5 не имеет события для замены рендера ItemEntity без mixin.
-     * Реализуем через onUpdate() — рисуем предметы вручную через ItemRenderer
-     * поверх мира в каждый тик рендера.
-     *
-     * Используем RenderWorldLastEvent через ClientEventHandler → onUpdate.
-     * Но onUpdate — это тик, а не рендер-фрейм.
-     *
-     * Правильный подход: регистрируем этот класс на EVENT_BUS и слушаем
-     * net.minecraftforge.client.event.RenderWorldLastEvent.
-     * ItemEntity НЕ является LivingEntity, поэтому обрабатываем отдельно.
-     */
     @SubscribeEvent
-    public void onRenderWorld(net.minecraftforge.client.event.RenderWorldLastEvent event) {
-        if (!isEnabled() || mc.level == null || mc.player == null) return;
+    public void onRenderItem(RenderItemEntityEvent event) {
+        if (!isEnabled()) return;
 
-        float pt = event.getPartialTicks();
-        net.minecraft.util.math.vector.Vector3d cam =
-            mc.gameRenderer.getMainCamera().getPosition();
+        ItemEntity item  = event.getItemEntity();
+        ItemStack  stack = item.getItem();
+        if (stack.isEmpty()) return;
 
-        MatrixStack ms = event.getMatrixStack();
-        IRenderTypeBuffer.Impl buffers = mc.renderBuffers().bufferSource();
+        // Отменяем ванильный рендер (убирает spinning + bobbbing + дубль)
+        event.setCanceled(true);
 
-        for (net.minecraft.entity.Entity e : mc.level.entitiesForRendering()) {
-            if (!(e instanceof ItemEntity)) continue;
-            ItemEntity item = (ItemEntity) e;
-            ItemStack stack = item.getItem();
-            if (stack.isEmpty()) continue;
+        MatrixStack       ms  = event.getMatrixStack();
+        IRenderTypeBuffer buf = event.getBuffers();
+        int light = event.getLight();
 
-            // Интерполированная позиция
-            double x = net.minecraft.util.math.MathHelper.lerp(pt, item.xOld, item.getX()) - cam.x;
-            double y = net.minecraft.util.math.MathHelper.lerp(pt, item.yOld, item.getY()) - cam.y;
-            double z = net.minecraft.util.math.MathHelper.lerp(pt, item.zOld, item.getZ()) - cam.z;
+        float pt = event.getPartialTick();
 
-            IBakedModel model = mc.getItemRenderer().getModel(stack, mc.level, mc.player);
+        // Интерполированная позиция относительно камеры
+        Vector3d cam = mc.gameRenderer.getMainCamera().getPosition();
+        double rx = MathHelper.lerp(pt, item.xOld, item.getX()) - cam.x;
+        double ry = MathHelper.lerp(pt, item.yOld, item.getY()) - cam.y;
+        double rz = MathHelper.lerp(pt, item.zOld, item.getZ()) - cam.z;
 
-            ms.pushPose();
-            ms.translate(x, y, z);
+        IBakedModel model = mc.getItemRenderer().getModel(stack, mc.level, mc.player);
 
-            // Убираем стандартный боббинг (vanilla: +0.1 + sin * 0.1)
-            // Кладём предмет на землю — сдвиг вниз к нижней границе BB
-            float bbH = item.getBbHeight();
-            ms.translate(0, -bbH * 0.5 + PIXEL, 0);
+        ms.pushPose();
+        ms.translate(rx, ry, rz);
 
-            // Вода — приподнимаем
-            if (item.isInWater()) ms.translate(0, 0.2, 0);
+        // Кладём предмет прямо на поверхность BB (убираем ванильный offset +0.25)
+        ms.translate(0, item.getBbHeight() * 0.5 - 0.04, 0);
 
-            boolean flat = flatMode.getValue() && !model.usesBlockLight();
+        // Поворачиваем плашмя (XP = вокруг оси X, 90° → горизонтально)
+        ms.mulPose(Vector3f.XP.rotationDegrees(90f));
 
-            if (flat) {
-                // Плоский предмет (монеты, пластины) — горизонтально
-                ms.mulPose(Vector3f.XP.rotationDegrees(90f));
-            }
-
-            // Случайный угол поворота — стабильный по ID
-            if (randomRotation.getValue()) {
-                float angle = angles.computeIfAbsent(item.getId(), id -> {
-                    rand.setSeed(id * 89748956L);
-                    return (rand.nextFloat() * 2f - 1f) * 90f;
-                });
-
-                if (flat) {
-                    ms.translate(0.5f, 0.5f, 0);
-                    ms.mulPose(Vector3f.ZP.rotationDegrees(angle));
-                    ms.translate(-0.5f, -0.5f, 0);
-                } else {
-                    ms.translate(0.5f, 0, 0.5f);
-                    ms.mulPose(Vector3f.YP.rotationDegrees(angle));
-                    ms.translate(-0.5f, 0, -0.5f);
-                }
-            }
-
-            // Стандартный масштаб предмета в мире
-            ms.scale(0.25f, 0.25f, 0.25f);
-            ms.translate(-0.5, -0.5, -0.5);
-
-            mc.getItemRenderer().render(
-                stack,
-                ItemCameraTransforms.TransformType.GROUND,
-                false,
-                ms,
-                buffers,
-                15728880,  // fullbright
-                655360,    // default overlay
-                model
-            );
-
-            ms.popPose();
+        // Стабильный случайный угол по ID предмета
+        if (randomRotation.getValue()) {
+            float angle = itemAngles.computeIfAbsent(item.getId(), id -> {
+                rand.setSeed(id * 31L * 89748956L);
+                return rand.nextFloat() * 360f;
+            });
+            ms.translate(0.5f, 0.5f, 0f);
+            ms.mulPose(Vector3f.ZP.rotationDegrees(angle));
+            ms.translate(-0.5f, -0.5f, 0f);
         }
 
-        buffers.endBatch();
+        // Стандартный размер предмета на земле (0.25 единицы — как ванила)
+        ms.scale(0.25f, 0.25f, 0.25f);
+        ms.translate(-0.5, -0.5, -0.5);
+
+        mc.getItemRenderer().render(
+            stack,
+            ItemCameraTransforms.TransformType.GROUND,
+            false,
+            ms,
+            buf,
+            light,
+            net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY,
+            model
+        );
+
+        ms.popPose();
+    }
+
+    @SubscribeEvent
+    public void onEntityLeave(EntityLeaveWorldEvent event) {
+        itemAngles.remove(event.getEntity().getId());
     }
 
     @SubscribeEvent
     public void onEntityJoin(EntityJoinWorldEvent event) {
-        // Чистим кэш мёртвых энтитей чтобы не копить память
-        if (event.getEntity() instanceof ItemEntity) {
-            angles.remove(event.getEntity().getId());
-        }
+        // Сбрасываем угол при повторном спауне того же ID
+        if (event.getEntity() instanceof ItemEntity)
+            itemAngles.remove(event.getEntity().getId());
     }
 }

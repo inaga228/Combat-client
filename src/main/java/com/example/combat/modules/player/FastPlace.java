@@ -11,38 +11,33 @@ public class FastPlace extends Module {
 
     public final Setting<Integer> delay = new Setting<>("Delay", 0).range(0, 4);
 
-    // Forge MCP обфусцированное имя поля rightClickDelay в классе Minecraft
-    private static final String[] FIELD_NAMES = {
-        "rightClickDelay", "field_71429_W", "W"
-    };
-    private static Field rightClickDelayField;
+    // В official mappings 1.16.5 поле называется rightClickDelay
+    // Обфусцированное MCP имя — field_71429_W
+    // Ищем оба варианта + перебором
+    private static Field delayField = findField();
 
-    static {
-        for (String name : FIELD_NAMES) {
+    private static Field findField() {
+        // Пробуем все известные имена
+        for (String name : new String[]{"rightClickDelay", "field_71429_W"}) {
             try {
                 Field f = net.minecraft.client.Minecraft.class.getDeclaredField(name);
                 f.setAccessible(true);
-                rightClickDelayField = f;
-                break;
+                return f;
             } catch (NoSuchFieldException ignored) {}
         }
-        // Если по имени не нашли — перебираем все int-поля
-        if (rightClickDelayField == null) {
-            for (Field f : net.minecraft.client.Minecraft.class.getDeclaredFields()) {
-                if (f.getType() == int.class) {
-                    f.setAccessible(true);
-                    try {
-                        // rightClickDelay обычно равно 0 или 4 — ищем нужный
-                        // Просто сохраняем первый int-поле с "delay" в имени
-                        if (f.getName().toLowerCase().contains("delay")
-                                || f.getName().toLowerCase().contains("click")) {
-                            rightClickDelayField = f;
-                            break;
-                        }
-                    } catch (Exception ignored) {}
-                }
+        // Перебираем все int-поля и ищем то что == 0 или 4 при старте
+        // rightClickDelay — одно из немногих int полей в Minecraft класс
+        // В official mappings оно называется rightClickDelay
+        // Fallback: берём первое int-поле с названием содержащим нужные слова
+        for (Field f : net.minecraft.client.Minecraft.class.getDeclaredFields()) {
+            if (f.getType() != int.class) continue;
+            String n = f.getName().toLowerCase();
+            if (n.contains("rightclick") || n.contains("right_click") || n.contains("useitem")) {
+                f.setAccessible(true);
+                return f;
             }
         }
+        return null;
     }
 
     public FastPlace() {
@@ -53,15 +48,10 @@ public class FastPlace extends Module {
     public void onTick(TickEvent.ClientTickEvent event) {
         if (!isEnabled() || mc.player == null) return;
         if (event.phase != TickEvent.Phase.START) return;
-        if (rightClickDelayField != null) {
-            try {
-                int current = (int) rightClickDelayField.get(mc);
-                if (current > delay.getValue()) {
-                    rightClickDelayField.set(mc, delay.getValue());
-                }
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            }
-        }
+        if (delayField == null) return;
+        try {
+            int cur = (int) delayField.get(mc);
+            if (cur > delay.getValue()) delayField.set(mc, delay.getValue());
+        } catch (IllegalAccessException ignored) {}
     }
 }
