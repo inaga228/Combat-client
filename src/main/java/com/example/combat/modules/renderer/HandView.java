@@ -67,7 +67,7 @@ public class HandView extends Module {
 
         if (swingMode.getValue() != SwingMode.NONE && mc.player != null) {
             if (swingMode.getValue() == SwingMode.OFFHAND) {
-                mc.player.attackAnim = mc.player.getCooledAttackStrength(1f);
+                mc.player.attackAnim = mc.player.getAttackStrengthScale(1f);
             }
         }
     }

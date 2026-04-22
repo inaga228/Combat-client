@@ -39,16 +39,16 @@ public class ModuleListHud extends Module {
 
         if (sortByLength.getValue()) {
             active.sort(Comparator.comparingInt(
-                m -> -mc.fontRenderer.width(m.getName())));
+                m -> -mc.font.width(m.getName())));
         }
 
         MatrixStack ms = event.getMatrixStack();
-        int sw = mc.getMainWindow().getScaledWidth();
+        int sw = mc.getWindow().getGuiScaledWidth();
         int y  = 2;
 
         for (Module m : active) {
             String name = m.getName();
-            int tw = mc.fontRenderer.width(name);
+            int tw = mc.font.width(name);
             int x  = sw - tw - 6;
 
             if (showBackground.getValue()) {
@@ -57,7 +57,7 @@ public class ModuleListHud extends Module {
             // Акцентная полоска справа
             RenderUtil.drawRect(ms, sw - 2, y - 1, 2, 10, ACCENT);
 
-            mc.fontRenderer.drawShadow(ms, name, x, y, TEXT);
+            mc.font.drawShadow(ms, name, x, y, TEXT);
             y += 11;
         }
     }

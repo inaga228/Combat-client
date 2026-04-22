@@ -60,14 +60,14 @@ public class ItemPhysics extends Module {
      */
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent event) {
-        if (!isEnabled() || mc.world == null || mc.player == null) return;
+        if (!isEnabled() || mc.level == null || mc.player == null) return;
 
         float pt = event.getPartialTicks();
         Vector3d cam = mc.gameRenderer.getMainCamera().getPosition();
         MatrixStack ms = event.getMatrixStack();
         IRenderTypeBuffer.Impl buffers = mc.renderBuffers().bufferSource();
 
-        for (net.minecraft.entity.Entity e : mc.world.getAllEntities()) {
+        for (net.minecraft.entity.Entity e : mc.level.getAllEntities()) {
             if (!(e instanceof ItemEntity)) continue;
             ItemEntity item = (ItemEntity) e;
             ItemStack stack = item.getItem();
@@ -77,7 +77,7 @@ public class ItemPhysics extends Module {
             double ry = MathHelper.lerp(pt, item.yOld, item.getY()) - cam.y;
             double rz = MathHelper.lerp(pt, item.zOld, item.getZ()) - cam.z;
 
-            IBakedModel model = mc.getItemRenderer().getModel(stack, mc.world, mc.player);
+            IBakedModel model = mc.getItemRenderer().getModel(stack, mc.level, mc.player);
 
             ms.pushPose();
             ms.translate(rx, ry, rz);

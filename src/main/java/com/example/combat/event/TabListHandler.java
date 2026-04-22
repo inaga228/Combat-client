@@ -43,11 +43,11 @@ public class TabListHandler {
         if (bt == null || !bt.isEnabled()) return;
 
         // 2. Рисуем поверх стандартного таб-листа кастомные имена
-        if (!mc.gameSettings.keyBindPlayerList.isDown()) return;
-        if (mc.world == null || mc.player == null) return;
+        if (!mc.options.keyPlayerList.isDown()) return;
+        if (mc.level == null || mc.player == null) return;
 
         MatrixStack ms = event.getMatrixStack();
-        FontRenderer font = mc.fontRenderer;
+        FontRenderer font = mc.font;
 
         // Получаем список игроков отсортированный как в vanilla
         Collection<NetworkPlayerInfo> players = mc.getConnection().getOnlinePlayers();
@@ -58,7 +58,7 @@ public class TabListHandler {
         }));
 
         // Параметры сетки таб-листа (vanilla использует похожие)
-        int screenW = mc.getMainWindow().getScaledWidth();
+        int screenW = mc.getWindow().getGuiScaledWidth();
         int cols     = Math.max(1, (sorted.size() + bt.tabHeight.getValue() - 1) / bt.tabHeight.getValue());
         int rows     = Math.min(sorted.size(), bt.tabHeight.getValue());
         int colW     = Math.min(210, (screenW - 50) / cols);
@@ -80,14 +80,14 @@ public class TabListHandler {
             int bgColor = 0x80000000;
             net.minecraft.client.gui.AbstractGui.fill(ms, px - 1, py - 1, px + colW - 2, py + 8, bgColor);
 
-            font.drawStringWithShadow(ms, displayName, px, py, 0xFFFFFF);
+            font.drawWithShadow(ms, displayName, px, py, 0xFFFFFF);
 
             // Пинг справа (если включен)
             if (bt.pingNum.getValue()) {
                 int ping = info.getLatency();
                 String pingStr = ping + "ms";
                 int pingColor = ping < 100 ? 0x55FF55 : ping < 200 ? 0xFFFF55 : 0xFF5555;
-                font.drawStringWithShadow(ms, pingStr, px + colW - font.getStringWidth(pingStr) - 2, py, pingColor);
+                font.drawWithShadow(ms, pingStr, px + colW - font.width(pingStr) - 2, py, pingColor);
             }
         }
     }

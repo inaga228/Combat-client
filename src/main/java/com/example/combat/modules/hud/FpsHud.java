@@ -32,7 +32,7 @@ public class FpsHud extends Module {
         MatrixStack ms = event.getMatrixStack();
 
         if (background.getValue()) {
-            RenderUtil.drawRect(ms, x - 2, y - 1, mc.fontRenderer.width(text) + 4, 10, 0x80000000);
+            RenderUtil.drawRect(ms, x - 2, y - 1, mc.font.width(text) + 4, 10, 0x80000000);
         }
 
         int color;
@@ -42,6 +42,6 @@ public class FpsHud extends Module {
             color = 0xFFFFFFFF;
         }
 
-        mc.fontRenderer.drawShadow(ms, text, x, y, color);
+        mc.font.drawShadow(ms, text, x, y, color);
     }
 }

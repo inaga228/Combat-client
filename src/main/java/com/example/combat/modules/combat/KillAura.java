@@ -106,13 +106,13 @@ public class KillAura extends Module {
 
     @Override
     public void onUpdate() {
-        if (mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.level == null) return;
         if (!mc.player.isAlive()) return;
         if (pauseOnUse.getValue() && (mc.player.isUsingItem())) return;
-        if (onlyOnClick.getValue() && mc.gameSettings.keyBindAttack.isDown() == false) return;
+        if (onlyOnClick.getValue() && mc.options.keyAttack.isDown() == false) return;
 
         // ── OnlyOnLook ──────────────────────────────────────────────
-        if (onlyOnLook.getValue() && !(mc.pointedEntity instanceof LivingEntity)) {
+        if (onlyOnLook.getValue() && !(mc.crosshairPickEntity instanceof LivingEntity)) {
             firstTarget = true;
             return;
         }
@@ -166,8 +166,8 @@ public class KillAura extends Module {
             // Criticals — отправляем пакеты крита перед ударом
             Criticals crit = Criticals.INSTANCE;
             if (crit == null || !crit.beforeAttack()) {
-                mc.playerController.attackEntity(mc.player, target);
-                mc.player.swingArm(Hand.MAIN_HAND);
+                mc.gameMode.attack(mc.player, target);
+                mc.player.swing(Hand.MAIN_HAND);
             }
         }
         hitTimer = 0;
@@ -183,13 +183,13 @@ public class KillAura extends Module {
             return true;
         }
         // Vanilla cooldown — ждём полного заряда (как в Meteor)
-        return mc.player.getCooledAttackStrength(0.5f) >= 1.0f;
+        return mc.player.getAttackStrengthScale(0.5f) >= 1.0f;
     }
 
     // ══ Вращение к цели ═════════════════════════════════════════════════
     private void rotateTo(LivingEntity e) {
         // Целим в центр тела
-        Vector3d pos   = e.getPositionVec().add(0, e.getHeight() * 0.5, 0);
+        Vector3d pos   = e.position().add(0, e.getBbHeight() * 0.5, 0);
         Vector3d delta = pos.subtract(mc.player.getEyePosition(1f));
         float tYaw   = (float) Math.toDegrees(Math.atan2(delta.z, delta.x)) - 90f;
         float tPitch = (float) -Math.toDegrees(
@@ -197,8 +197,8 @@ public class KillAura extends Module {
         tPitch = MathHelper.clamp(tPitch, -90f, 90f);
 
         if (firstTarget) {
-            currentYaw   = mc.player.rotationYaw;
-            currentPitch = mc.player.rotationPitch;
+            currentYaw   = mc.player.yRot;
+            currentPitch = mc.player.xRot;
             firstTarget  = false;
         }
 
@@ -221,13 +221,13 @@ public class KillAura extends Module {
 
         // GCD коррекция — анти-детект движения мыши
         float div  = 0.15f;
-        float gcdY = mc.player.rotationYaw + (float)(Math.round((currentYaw   - mc.player.rotationYaw) / div) * div);
-        float gcdP = mc.player.rotationPitch + (float)(Math.round((currentPitch - mc.player.rotationPitch) / div) * div);
+        float gcdY = mc.player.yRot + (float)(Math.round((currentYaw   - mc.player.yRot) / div) * div);
+        float gcdP = mc.player.xRot + (float)(Math.round((currentPitch - mc.player.xRot) / div) * div);
 
-        mc.player.rotationYaw     = gcdY;
-        mc.player.rotationPitch     = gcdP;
-        mc.player.renderYawOffset = gcdY;
-        mc.player.rotationYawHead = gcdY;
+        mc.player.yRot     = gcdY;
+        mc.player.xRot     = gcdP;
+        mc.player.yBodyRot = gcdY;
+        mc.player.yRotHead = gcdY;
     }
 
     // ══ Получение списка целей ═══════════════════════════════════════════
@@ -236,7 +236,7 @@ public class KillAura extends Module {
         AxisAlignedBB box = mc.player.getBoundingBox().inflate(r, r, r);
         Vector3d eye = mc.player.getEyePosition(1f);
 
-        List<LivingEntity> list = mc.world.getEntitiesWithinAABB(LivingEntity.class, box, e -> entityCheck(e, eye));
+        List<LivingEntity> list = mc.level.getEntitiesOfClass(LivingEntity.class, box, e -> entityCheck(e, eye));
 
         // Сортировка по SortPriority
         switch (sortPriority.getValue()) {
@@ -246,7 +246,7 @@ public class KillAura extends Module {
                     double cx = MathHelper.clamp(mc.player.getX(), hb.minX, hb.maxX);
                     double cy = MathHelper.clamp(mc.player.getY(), hb.minY, hb.maxY);
                     double cz = MathHelper.clamp(mc.player.getZ(), hb.minZ, hb.maxZ);
-                    return mc.player.getPositionVec().distanceTo(new Vector3d(cx, cy, cz));
+                    return mc.player.position().distanceTo(new Vector3d(cx, cy, cz));
                 }));
                 break;
             case LOWEST_HEALTH:
@@ -263,9 +263,9 @@ public class KillAura extends Module {
     }
 
     private double getAngleTo(LivingEntity e) {
-        Vector3d pos   = e.getPositionVec().add(0, e.getHeight() * 0.5, 0);
+        Vector3d pos   = e.position().add(0, e.getBbHeight() * 0.5, 0);
         Vector3d delta = pos.subtract(mc.player.getEyePosition(1f)).normalize();
-        Vector3d look  = mc.player.getLookVec();
+        Vector3d look  = mc.player.getLookAngle();
         return Math.acos(MathHelper.clamp(look.dot(delta), -1.0, 1.0));
     }
 
@@ -281,7 +281,7 @@ public class KillAura extends Module {
         double clampedX = MathHelper.clamp(mc.player.getX(), hitbox.minX, hitbox.maxX);
         double clampedY = MathHelper.clamp(mc.player.getY(), hitbox.minY, hitbox.maxY);
         double clampedZ = MathHelper.clamp(mc.player.getZ(), hitbox.minZ, hitbox.maxZ);
-        double dist = mc.player.getPositionVec().distanceTo(new Vector3d(clampedX, clampedY, clampedZ));
+        double dist = mc.player.position().distanceTo(new Vector3d(clampedX, clampedY, clampedZ));
         if (dist > r) return false;
 
         // Фильтр по типу цели
@@ -336,17 +336,17 @@ public class KillAura extends Module {
 
     // ══ Видимость ═══════════════════════════════════════════════════════
     private boolean canSeeEntity(LivingEntity e, Vector3d eye) {
-        float h = e.getHeight();
+        float h = e.getBbHeight();
         Vector3d[] pts = {
-            e.getPositionVec().add(0, h * 0.9, 0),
-            e.getPositionVec().add(0, h * 0.5, 0),
-            e.getPositionVec().add(0, h * 0.1, 0)
+            e.position().add(0, h * 0.9, 0),
+            e.position().add(0, h * 0.5, 0),
+            e.position().add(0, h * 0.1, 0)
         };
         for (Vector3d pt : pts) {
             RayTraceContext ctx = new RayTraceContext(eye, pt,
                     RayTraceContext.BlockMode.COLLIDER,
                     RayTraceContext.FluidMode.NONE, mc.player);
-            if (mc.world.clip(ctx).getType() != RayTraceResult.Type.BLOCK)
+            if (mc.level.clip(ctx).getType() != RayTraceResult.Type.BLOCK)
                 return true;
         }
         return false;
@@ -388,7 +388,7 @@ public class KillAura extends Module {
     }
 
     public LivingEntity getCurrentTarget() {
-        if (mc.player == null || mc.world == null) return null;
+        if (mc.player == null || mc.level == null) return null;
         java.util.List<LivingEntity> t = getTargets();
         return t.isEmpty() ? null : t.get(0);
     }

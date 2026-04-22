@@ -35,9 +35,9 @@ public class WatermarkHud extends Module {
             ? "  " + com.example.combat.utils.RenderUtil.getFps() + " fps"
             : "";
 
-        int nameW    = mc.fontRenderer.width(name);
-        int versionW = mc.fontRenderer.width(version);
-        int fpsW     = mc.fontRenderer.width(fps);
+        int nameW    = mc.font.width(name);
+        int versionW = mc.font.width(version);
+        int fpsW     = mc.font.width(fps);
         int totalW   = nameW + versionW + fpsW;
 
         int x = 4, y = 4;
@@ -45,8 +45,8 @@ public class WatermarkHud extends Module {
         // Рамка снизу акцентным цветом
         RenderUtil.drawRect(ms, x - 2, y + 9, totalW + 4, 1, COL_NAME);
 
-        mc.fontRenderer.drawShadow(ms, name,    x,             y, COL_NAME);
-        mc.fontRenderer.drawShadow(ms, version, x + nameW,     y, COL_INFO);
-        mc.fontRenderer.drawShadow(ms, fps,     x + nameW + versionW, y, COL_INFO);
+        mc.font.drawShadow(ms, name,    x,             y, COL_NAME);
+        mc.font.drawShadow(ms, version, x + nameW,     y, COL_INFO);
+        mc.font.drawShadow(ms, fps,     x + nameW + versionW, y, COL_INFO);
     }
 }

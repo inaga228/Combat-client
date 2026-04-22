@@ -23,7 +23,7 @@ public class ClientEventHandler {
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.START) return;
-        if (mc.player == null || mc.world == null) return;
+        if (mc.player == null || mc.level == null) return;
         for (Module m : CombatClient.moduleManager.getModules()) {
             if (m.isEnabled()) m.onUpdate();
         }
