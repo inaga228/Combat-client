@@ -227,7 +227,7 @@ public class KillAura extends Module {
         mc.player.yRot     = gcdY;
         mc.player.xRot     = gcdP;
         mc.player.yBodyRot = gcdY;
-        mc.player.yRotHead = gcdY;
+        mc.player.yHeadRot = gcdY;
     }
 
     // ══ Получение списка целей ═══════════════════════════════════════════
@@ -306,7 +306,7 @@ public class KillAura extends Module {
 
         // IgnorePassive — не бить нейтралов если они не агрятся
         if (ignorePassive.getValue()) {
-            if (e instanceof EndermanEntity && !((EndermanEntity) e).isScreaming()) return false;
+            if (e instanceof EndermanEntity && !((EndermanEntity) e).isCreepy()) return false;
             // Forge 1.16.5: пиглины — net.minecraft.entity.monster.piglin
             if (e instanceof net.minecraft.entity.monster.piglin.AbstractPiglinEntity
                     && !((net.minecraft.entity.monster.piglin.AbstractPiglinEntity) e).isAggressive()) return false;

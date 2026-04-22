@@ -51,7 +51,7 @@ public class Notifications extends Module {
         int i  = 0;
         for (Notif n : queue) {
             int tw = mc.font.width(n.getText());
-            mc.font.drawWithShadow(ms, n.getText(), sw - tw - 4, 4 + i * 12, n.getColor());
+            mc.font.draw(ms, n.getText(), sw - tw - 4, 4 + i * 12, n.getColor());
             i++;
         }
     }

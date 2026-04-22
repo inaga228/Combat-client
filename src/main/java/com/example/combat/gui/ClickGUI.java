@@ -487,7 +487,7 @@ public class ClickGUI extends Screen {
     /** OpenGL scissor test — обрезаем рендер за границей панели. */
     private void enableScissor(int x1, int y1, int x2, int y2) {
         double scale = minecraft.getWindow().getGuiScale();
-        int winH = minecraft.getWindow().getBbHeight();
+        int winH = minecraft.getWindow().getGuiScaledHeight();
         GL11.glEnable(GL11.GL_SCISSOR_TEST);
         GL11.glScissor(
             (int)(x1 * scale),

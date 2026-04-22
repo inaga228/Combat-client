@@ -229,8 +229,8 @@ public class CrystalAura extends Module {
         if (base != Blocks.OBSIDIAN && base != Blocks.BEDROCK) return false;
 
         // Блок над основанием и два выше должны быть воздух
-        if (!mc.level.getBlockState(pos.above()).isAir(null)) return false;
-        if (!mc.level.getBlockState(pos.above(2)).isAir(null)) return false;
+        if (!mc.level.getBlockState(pos.above()).isAir()) return false;
+        if (!mc.level.getBlockState(pos.above(2)).isAir()) return false;
 
         // Не должно быть кристалла уже на этой позиции
         AxisAlignedBB checkBox = new AxisAlignedBB(

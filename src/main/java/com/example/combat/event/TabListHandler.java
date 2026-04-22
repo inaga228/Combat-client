@@ -80,14 +80,14 @@ public class TabListHandler {
             int bgColor = 0x80000000;
             net.minecraft.client.gui.AbstractGui.fill(ms, px - 1, py - 1, px + colW - 2, py + 8, bgColor);
 
-            font.drawWithShadow(ms, displayName, px, py, 0xFFFFFF);
+            font.draw(ms, displayName.getString(), px, py, 0xFFFFFF);
 
             // Пинг справа (если включен)
             if (bt.pingNum.getValue()) {
                 int ping = info.getLatency();
                 String pingStr = ping + "ms";
                 int pingColor = ping < 100 ? 0x55FF55 : ping < 200 ? 0xFFFF55 : 0xFF5555;
-                font.drawWithShadow(ms, pingStr, px + colW - font.width(pingStr) - 2, py, pingColor);
+                font.draw(ms, pingStr, px + colW - font.width(pingStr) - 2, py, pingColor);
             }
         }
     }

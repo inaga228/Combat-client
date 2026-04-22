@@ -59,7 +59,7 @@ public class ESP extends Module {
 
         ms.pushPose();
 
-        for (Entity entity : mc.level.getAllEntities()) {
+        for (Entity entity : mc.level.entitiesForRendering()) {
             if (!shouldRender(entity)) continue;
 
             int[] col = getColor(entity);

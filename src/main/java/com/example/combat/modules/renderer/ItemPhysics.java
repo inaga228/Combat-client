@@ -67,7 +67,7 @@ public class ItemPhysics extends Module {
         MatrixStack ms = event.getMatrixStack();
         IRenderTypeBuffer.Impl buffers = mc.renderBuffers().bufferSource();
 
-        for (net.minecraft.entity.Entity e : mc.level.getAllEntities()) {
+        for (net.minecraft.entity.Entity e : mc.level.entitiesForRendering()) {
             if (!(e instanceof ItemEntity)) continue;
             ItemEntity item = (ItemEntity) e;
             ItemStack stack = item.getItem();
