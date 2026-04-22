@@ -32,7 +32,7 @@ public class WatermarkHud extends Module {
         String name    = CLIENT_NAME;
         String version = showVersion.getValue() ? " " + CLIENT_VERSION : "";
         String fps     = showFps.getValue()
-            ? "  " + net.minecraft.client.Minecraft.fps + " fps"
+            ? "  " + com.example.combat.utils.RenderUtil.getFps() + " fps"
             : "";
 
         int nameW    = mc.font.width(name);
