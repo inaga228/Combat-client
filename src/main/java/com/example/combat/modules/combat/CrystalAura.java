@@ -198,7 +198,7 @@ public class CrystalAura extends Module {
 
                     if (!isValidPlacement(pos)) continue;
 
-                    double dist = mc.player.distanceTo(
+                    double dist = mc.player.position().distanceTo(
                             new Vector3d(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5));
                     if (dist > r) continue;
 
