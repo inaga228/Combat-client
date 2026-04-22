@@ -49,8 +49,8 @@ public class HandView extends Module {
     public void onRenderHand(RenderHandEvent event) {
         if (!isEnabled()) return;
 
-        // official mappings: getPoseStack() вместо getMatrix()
-        MatrixStack ms = event.getPoseStack();
+        
+        MatrixStack ms = event.getMatrix();
         Hand hand = event.getHand();
 
         if (hand == Hand.MAIN_HAND) {
