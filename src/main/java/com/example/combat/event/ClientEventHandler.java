@@ -2,15 +2,12 @@ package com.example.combat.event;
 
 import com.example.combat.CombatClient;
 import com.example.combat.gui.ClickGUI;
+import com.example.combat.gui.MainMenu;
 import com.example.combat.modules.Module;
 import com.example.combat.modules.hud.Notifications;
-import com.example.combat.modules.renderer.BetterTab;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.network.play.NetworkPlayerInfo;
-import net.minecraft.scoreboard.ScorePlayerTeam;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraftforge.client.event.GuiScreenEvent;
-import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraft.client.gui.screen.MainMenuScreen;
+import net.minecraftforge.client.event.GuiOpenEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.lwjgl.glfw.GLFW;
@@ -26,6 +23,14 @@ public class ClientEventHandler {
         if (mc.player == null || mc.level == null) return;
         for (Module m : CombatClient.moduleManager.getModules()) {
             if (m.isEnabled()) m.onUpdate();
+        }
+    }
+
+    @SubscribeEvent
+    public void onGuiOpen(GuiOpenEvent event) {
+        // Заменяем ванильное главное меню нашим
+        if (event.getGui() instanceof MainMenuScreen) {
+            event.setGui(new MainMenu());
         }
     }
 
