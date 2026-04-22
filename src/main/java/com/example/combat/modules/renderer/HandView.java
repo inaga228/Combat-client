@@ -50,7 +50,7 @@ public class HandView extends Module {
         if (!isEnabled()) return;
 
         
-        MatrixStack ms = event.getMatrix();
+        MatrixStack ms = event.getMatrixStack();
         Hand hand = event.getHand();
 
         if (hand == Hand.MAIN_HAND) {
