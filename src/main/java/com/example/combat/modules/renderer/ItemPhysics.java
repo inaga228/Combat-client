@@ -14,7 +14,6 @@ import net.minecraftforge.client.event.RenderNameplateEvent;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.client.event.EntityRenderersEvent;
 
 import java.util.HashMap;
 import java.util.Map;
