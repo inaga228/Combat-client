@@ -4,6 +4,12 @@ import com.example.combat.modules.combat.AutoTotem;
 import com.example.combat.modules.combat.Criticals;
 import com.example.combat.modules.combat.KillAura;
 import com.example.combat.modules.hud.Notifications;
+import com.example.combat.modules.hud.ModuleListHud;
+import com.example.combat.modules.hud.WatermarkHud;
+import com.example.combat.modules.hud.FpsHud;
+import com.example.combat.modules.hud.TotemHud;
+import com.example.combat.modules.hud.CrystalHud;
+import com.example.combat.modules.hud.TargetHud;
 import com.example.combat.modules.player.FastPlace;
 import com.example.combat.modules.renderer.BetterTab;
 import com.example.combat.modules.renderer.HandView;
@@ -31,6 +37,12 @@ public class ModuleManager {
         register(new ItemPhysics());
         // HUD
         register(new Notifications());
+        register(new ModuleListHud());
+        register(new WatermarkHud());
+        register(new FpsHud());
+        register(new TotemHud());
+        register(new CrystalHud());
+        register(new TargetHud());
     }
 
     private void register(Module m) { modules.add(m); }

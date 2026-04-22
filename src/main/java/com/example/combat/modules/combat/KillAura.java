@@ -388,6 +388,12 @@ public class KillAura extends Module {
         return best;
     }
 
+    public LivingEntity getCurrentTarget() {
+        if (mc.player == null || mc.level == null) return null;
+        java.util.List<LivingEntity> t = getTargets();
+        return t.isEmpty() ? null : t.get(0);
+    }
+
     private int getBestAxeSlot() {
         int best = -1;
         double bestDmg = -1;

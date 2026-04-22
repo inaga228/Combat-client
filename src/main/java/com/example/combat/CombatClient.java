@@ -8,6 +8,12 @@ import com.example.combat.modules.combat.Criticals;
 import com.example.combat.modules.hud.Notifications;
 import com.example.combat.modules.player.FastPlace;
 import com.example.combat.modules.renderer.HandView;
+import com.example.combat.modules.hud.ModuleListHud;
+import com.example.combat.modules.hud.WatermarkHud;
+import com.example.combat.modules.hud.FpsHud;
+import com.example.combat.modules.hud.TotemHud;
+import com.example.combat.modules.hud.CrystalHud;
+import com.example.combat.modules.hud.TargetHud;
 import com.example.combat.modules.renderer.ESP;
 import com.example.combat.modules.renderer.ItemPhysics;
 import net.minecraftforge.common.MinecraftForge;
@@ -42,6 +48,13 @@ public class CombatClient {
         MinecraftForge.EVENT_BUS.register((HandView)    moduleManager.getByName("HandView"));
         MinecraftForge.EVENT_BUS.register((ESP)         moduleManager.getByName("ESP"));
         MinecraftForge.EVENT_BUS.register((ItemPhysics) moduleManager.getByName("ItemPhysics"));
+
+        MinecraftForge.EVENT_BUS.register((ModuleListHud) moduleManager.getByName("ModuleList"));
+        MinecraftForge.EVENT_BUS.register((WatermarkHud)  moduleManager.getByName("Watermark"));
+        MinecraftForge.EVENT_BUS.register((FpsHud)        moduleManager.getByName("FpsHud"));
+        MinecraftForge.EVENT_BUS.register((TotemHud)      moduleManager.getByName("TotemHud"));
+        MinecraftForge.EVENT_BUS.register((CrystalHud)    moduleManager.getByName("CrystalHud"));
+        MinecraftForge.EVENT_BUS.register((TargetHud)     moduleManager.getByName("TargetHud"));
 
         LOGGER.info("[CombatClient] Loaded {} modules", moduleManager.getModules().size());
     }
