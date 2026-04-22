@@ -42,7 +42,7 @@ public class ESP extends Module {
 
     @SubscribeEvent
     public void onRenderWorld(RenderWorldLastEvent event) {
-        if (!isEnabled() || mc.level == null || mc.player == null) return;
+        if (!isEnabled() || mc.world == null || mc.player == null) return;
 
         float pt = event.getPartialTicks();
         Vector3d cam = mc.gameRenderer.getMainCamera().getPosition();
@@ -59,7 +59,7 @@ public class ESP extends Module {
 
         ms.pushPose();
 
-        for (Entity entity : mc.level.entitiesForRendering()) {
+        for (Entity entity : mc.world.getAllEntities()) {
             if (!shouldRender(entity)) continue;
 
             int[] col = getColor(entity);

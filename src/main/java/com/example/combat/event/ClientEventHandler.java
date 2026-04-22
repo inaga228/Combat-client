@@ -6,7 +6,6 @@ import com.example.combat.modules.Module;
 import com.example.combat.modules.hud.Notifications;
 import com.example.combat.modules.renderer.BetterTab;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.overlay.PlayerTabOverlayGui;
 import net.minecraft.client.network.play.NetworkPlayerInfo;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.util.text.ITextComponent;
@@ -24,7 +23,7 @@ public class ClientEventHandler {
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.START) return;
-        if (mc.player == null || mc.level == null) return;
+        if (mc.player == null || mc.world == null) return;
         for (Module m : CombatClient.moduleManager.getModules()) {
             if (m.isEnabled()) m.onUpdate();
         }

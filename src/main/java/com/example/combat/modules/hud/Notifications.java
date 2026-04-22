@@ -47,11 +47,11 @@ public class Notifications extends Module {
         while (it.hasNext()) { if (now > it.next().getExpiry()) it.remove(); }
 
         MatrixStack ms = event.getMatrixStack();
-        int sw = mc.getWindow().getGuiScaledWidth();
+        int sw = mc.getMainWindow().getScaledWidth();
         int i  = 0;
         for (Notif n : queue) {
-            int tw = mc.font.width(n.getText());
-            mc.font.drawShadow(ms, n.getText(), sw - tw - 4, 4 + i * 12, n.getColor());
+            int tw = mc.fontRenderer.getStringWidth(n.getText());
+            mc.fontRenderer.drawStringWithShadow(ms, n.getText(), sw - tw - 4, 4 + i * 12, n.getColor());
             i++;
         }
     }

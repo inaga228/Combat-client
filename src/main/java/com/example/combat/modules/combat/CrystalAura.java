@@ -97,7 +97,7 @@ public class CrystalAura extends Module {
     @SubscribeEvent
     public void onTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.START) return;
-        if (!isEnabled() || mc.player == null || mc.level == null) return;
+        if (!isEnabled() || mc.player == null || mc.world == null) return;
 
         // ── Найти ближайшего игрока-цель ──────────────────────────────
         PlayerEntity target = findTarget();
@@ -142,7 +142,7 @@ public class CrystalAura extends Module {
         PlayerEntity best = null;
         double bestDist   = Double.MAX_VALUE;
 
-        for (Entity e : mc.level.getEntitiesOfClass(PlayerEntity.class, box, p ->
+        for (Entity e : mc.world.getEntitiesWithinAABB(PlayerEntity.class, box, p ->
                 p != mc.player && p.isAlive() && !p.isCreative())) {
             double d = mc.player.distanceTo(e);
             if (d < bestDist) { bestDist = d; best = (PlayerEntity) e; }
@@ -159,10 +159,10 @@ public class CrystalAura extends Module {
         float bestDmg = -1;
 
         for (EnderCrystalEntity crystal :
-                mc.level.getEntitiesOfClass(EnderCrystalEntity.class, box, e -> e.isAlive())) {
+                mc.world.getEntitiesWithinAABB(EnderCrystalEntity.class, box, e -> e.isAlive())) {
 
             double dist = mc.player.distanceTo(crystal);
-            boolean canSee = canSee(crystal.position());
+            boolean canSee = canSee(crystal.getPositionVec());
             if (!canSee && dist > breakWallsRange.getValue()) continue;
             if (dist > r) continue;
 
@@ -170,8 +170,8 @@ public class CrystalAura extends Module {
             int attempts = breakAttemptMap.getOrDefault(crystal.getId(), 0);
             if (attempts >= breakAttempts.getValue()) continue;
 
-            float dmgTarget = calcExplosionDmg(target, crystal.position());
-            float dmgSelf   = calcExplosionDmg(mc.player, crystal.position());
+            float dmgTarget = calcExplosionDmg(target, crystal.getPositionVec());
+            float dmgSelf   = calcExplosionDmg(mc.player, crystal.getPositionVec());
 
             if (dmgTarget < minDamage.getValue()) continue;
             if (dmgSelf > maxSelfDmg.getValue()) continue;
@@ -198,7 +198,7 @@ public class CrystalAura extends Module {
 
                     if (!isValidPlacement(pos)) continue;
 
-                    double dist = mc.player.position().distanceTo(
+                    double dist = mc.player.getPositionVec().distanceTo(
                             new Vector3d(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5));
                     if (dist > r) continue;
 
@@ -225,18 +225,18 @@ public class CrystalAura extends Module {
     // ══ Проверка валидной позиции установки ══════════════════════════════
     private boolean isValidPlacement(BlockPos pos) {
         // Основание должно быть обсидиан или бедрок
-        net.minecraft.block.Block base = mc.level.getBlockState(pos).getBlock();
+        net.minecraft.block.Block base = mc.world.getBlockState(pos).getBlock();
         if (base != Blocks.OBSIDIAN && base != Blocks.BEDROCK) return false;
 
         // Блок над основанием и два выше должны быть воздух
-        if (!mc.level.getBlockState(pos.above()).isAir()) return false;
-        if (!mc.level.getBlockState(pos.above(2)).isAir()) return false;
+        if (!mc.world.getBlockState(pos.up()).isAir()) return false;
+        if (!mc.world.getBlockState(pos.up(2)).isAir()) return false;
 
         // Не должно быть кристалла уже на этой позиции
         AxisAlignedBB checkBox = new AxisAlignedBB(
                 pos.getX(), pos.getY() + 1, pos.getZ(),
                 pos.getX() + 1, pos.getY() + 3, pos.getZ() + 1);
-        return mc.level.getEntitiesOfClass(EnderCrystalEntity.class, checkBox, e -> true).isEmpty();
+        return mc.world.getEntitiesWithinAABB(EnderCrystalEntity.class, checkBox, e -> true).isEmpty();
     }
 
     // ══ Установка кристалла ═══════════════════════════════════════════════
@@ -254,7 +254,7 @@ public class CrystalAura extends Module {
 
         // Swing
         if (swingMode.getValue() == SwingMode.CLIENT) {
-            mc.player.swing(Hand.MAIN_HAND);
+            mc.player.swingArm(Hand.MAIN_HAND);
         } else if (swingMode.getValue() == SwingMode.PACKET) {
             mc.getConnection().send(
                 new net.minecraft.network.play.client.CAnimateHandPacket(Hand.MAIN_HAND));
@@ -263,14 +263,14 @@ public class CrystalAura extends Module {
 
     // ══ Взрыв кристалла ═══════════════════════════════════════════════════
     private void attackCrystal(EnderCrystalEntity crystal) {
-        if (mc.getConnection() == null || mc.gameMode == null) return;
+        if (mc.getConnection() == null || mc.playerController == null) return;
 
-        rotateTo(crystal.position());
+        rotateTo(crystal.getPositionVec());
 
-        mc.gameMode.attack(mc.player, crystal);
+        mc.playerController.attackEntity(mc.player, crystal);
 
         if (swingMode.getValue() == SwingMode.CLIENT) {
-            mc.player.swing(Hand.MAIN_HAND);
+            mc.player.swingArm(Hand.MAIN_HAND);
         } else if (swingMode.getValue() == SwingMode.PACKET) {
             mc.getConnection().send(
                 new net.minecraft.network.play.client.CAnimateHandPacket(Hand.MAIN_HAND));
@@ -292,8 +292,8 @@ public class CrystalAura extends Module {
         if (rotateMode.getValue() == RotateMode.PACKET && mc.getConnection() != null) {
             mc.getConnection().send(new CPlayerPacket.RotationPacket(yaw, pitch, mc.player.isOnGround()));
         } else if (rotateMode.getValue() == RotateMode.CLIENT) {
-            mc.player.yRot = yaw;
-            mc.player.xRot = pitch;
+            mc.player.rotationYaw = yaw;
+            mc.player.rotationPitch = pitch;
         }
     }
 
@@ -305,7 +305,7 @@ public class CrystalAura extends Module {
      */
     private float calcExplosionDmg(LivingEntity entity, Vector3d crystalPos) {
         float power = 6.0f;
-        double dist = entity.position().add(0, entity.getBbHeight() * 0.5, 0)
+        double dist = entity.getPositionVec().add(0, entity.getHeight() * 0.5, 0)
                 .distanceTo(crystalPos);
         double maxDist = power * 2.0;
 
@@ -331,12 +331,12 @@ public class CrystalAura extends Module {
 
     // ══ Видимость точки ═══════════════════════════════════════════════════
     private boolean canSee(Vector3d pos) {
-        if (mc.level == null || mc.player == null) return false;
+        if (mc.world == null || mc.player == null) return false;
         RayTraceContext ctx = new RayTraceContext(
                 mc.player.getEyePosition(1f), pos,
                 RayTraceContext.BlockMode.COLLIDER,
                 RayTraceContext.FluidMode.NONE, mc.player);
-        return mc.level.clip(ctx).getType() != RayTraceResult.Type.BLOCK;
+        return mc.world.clip(ctx).getType() != RayTraceResult.Type.BLOCK;
     }
 
     // ══ AutoSwitch ════════════════════════════════════════════════════════

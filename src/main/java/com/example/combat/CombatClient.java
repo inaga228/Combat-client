@@ -5,8 +5,8 @@ import com.example.combat.event.TabListHandler;
 import com.example.combat.modules.ModuleManager;
 import com.example.combat.render.CustomItemEntityRenderer;
 import net.minecraft.entity.EntityType;
-import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.client.registry.RenderingRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -24,12 +24,16 @@ public class CombatClient {
 
     public CombatClient() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::clientSetup);
-        // EntityRenderersEvent регистрируется на MOD bus
-        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onRegisterRenderers);
     }
 
     private void clientSetup(final FMLClientSetupEvent event) {
         moduleManager = new ModuleManager();
+
+        // Регистрация кастомного рендерера предметов — Forge 1.16.5 API
+        RenderingRegistry.registerEntityRenderingHandler(
+            EntityType.ITEM,
+            CustomItemEntityRenderer::new
+        );
 
         MinecraftForge.EVENT_BUS.register(new ClientEventHandler());
         MinecraftForge.EVENT_BUS.register(new TabListHandler());
@@ -40,10 +44,5 @@ public class CombatClient {
         }
 
         LOGGER.info("[CombatClient] Loaded {} modules", moduleManager.getModules().size());
-    }
-
-    private void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        // Заменяем стандартный ItemEntityRenderer нашим кастомным
-        event.registerEntityRenderer(EntityType.ITEM, CustomItemEntityRenderer::new);
     }
 }

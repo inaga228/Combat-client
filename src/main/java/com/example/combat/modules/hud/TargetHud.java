@@ -60,7 +60,7 @@ public class TargetHud extends Module {
             ? ((PlayerEntity) target).getGameProfile().getName()
             : target.getName().getString();
         if (name.length() > 14) name = name.substring(0, 13) + "…";
-        mc.font.drawShadow(ms, name, x + 4, y + 4, COL_NAME);
+        mc.fontRenderer.drawShadow(ms, name, x + 4, y + 4, COL_NAME);
 
         // HP
         float hp    = MathHelper.clamp(target.getHealth(), 0, target.getMaxHealth());
@@ -69,7 +69,7 @@ public class TargetHud extends Module {
 
         String hpStr = String.format("%.1f / %.0f", hp, maxHp);
         int hpColor  = pct > 0.6f ? COL_HP_HI : pct > 0.3f ? COL_HP_MD : COL_HP_LO;
-        mc.font.drawShadow(ms, hpStr, x + 4, y + 15, hpColor);
+        mc.fontRenderer.drawShadow(ms, hpStr, x + 4, y + 15, hpColor);
 
         // HP бар
         int barX = x + 4;
@@ -81,7 +81,7 @@ public class TargetHud extends Module {
         // Дистанция
         float dist = mc.player.distanceTo(target);
         String distStr = String.format("%.1fm", dist);
-        mc.font.drawShadow(ms, distStr,
-            x + W - mc.font.width(distStr) - 4, y + 4, 0xFFAAAAAA);
+        mc.fontRenderer.drawShadow(ms, distStr,
+            x + W - mc.fontRenderer.width(distStr) - 4, y + 4, 0xFFAAAAAA);
     }
 }

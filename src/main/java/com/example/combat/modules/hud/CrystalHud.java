@@ -38,14 +38,14 @@ public class CrystalHud extends Module {
         int y = posY.getValue();
 
         MatrixStack ms = event.getMatrixStack();
-        int totalW = mc.font.width(label + num);
+        int totalW = mc.fontRenderer.width(label + num);
 
         RenderUtil.drawRect(ms, x - 2, y - 1, totalW + 4, 10, BG);
 
         int numColor = count >= 16 ? COL_SAFE : count > 0 ? COL_LOW : COL_EMPTY;
 
-        mc.font.drawShadow(ms, label, x, y, 0xFFFFFFFF);
-        mc.font.drawShadow(ms, num,   x + mc.font.width(label), y, numColor);
+        mc.fontRenderer.drawShadow(ms, label, x, y, 0xFFFFFFFF);
+        mc.fontRenderer.drawShadow(ms, num,   x + mc.fontRenderer.width(label), y, numColor);
 
         // Иконка кристалла
         ItemStack crystal = new ItemStack(Items.END_CRYSTAL);

@@ -43,11 +43,11 @@ public class TabListHandler {
         if (bt == null || !bt.isEnabled()) return;
 
         // 2. Рисуем поверх стандартного таб-листа кастомные имена
-        if (!mc.options.keyPlayerList.isDown()) return;
-        if (mc.level == null || mc.player == null) return;
+        if (!mc.gameSettings.keyBindPlayerList.isDown()) return;
+        if (mc.world == null || mc.player == null) return;
 
         MatrixStack ms = event.getMatrixStack();
-        FontRenderer font = mc.font;
+        FontRenderer font = mc.fontRenderer;
 
         // Получаем список игроков отсортированный как в vanilla
         Collection<NetworkPlayerInfo> players = mc.getConnection().getOnlinePlayers();
@@ -58,7 +58,7 @@ public class TabListHandler {
         }));
 
         // Параметры сетки таб-листа (vanilla использует похожие)
-        int screenW = mc.getWindow().getGuiScaledWidth();
+        int screenW = mc.getMainWindow().getScaledWidth();
         int cols     = Math.max(1, (sorted.size() + bt.tabHeight.getValue() - 1) / bt.tabHeight.getValue());
         int rows     = Math.min(sorted.size(), bt.tabHeight.getValue());
         int colW     = Math.min(210, (screenW - 50) / cols);
@@ -80,36 +80,20 @@ public class TabListHandler {
             int bgColor = 0x80000000;
             net.minecraft.client.gui.AbstractGui.fill(ms, px - 1, py - 1, px + colW - 2, py + 8, bgColor);
 
-            font.drawShadow(ms, displayName, px, py, 0xFFFFFF);
+            font.drawStringWithShadow(ms, displayName, px, py, 0xFFFFFF);
 
             // Пинг справа (если включен)
             if (bt.pingNum.getValue()) {
                 int ping = info.getLatency();
                 String pingStr = ping + "ms";
                 int pingColor = ping < 100 ? 0x55FF55 : ping < 200 ? 0xFFFF55 : 0xFF5555;
-                font.drawShadow(ms, pingStr, px + colW - font.width(pingStr) - 2, py, pingColor);
+                font.drawStringWithShadow(ms, pingStr, px + colW - font.getStringWidth(pingStr) - 2, py, pingColor);
             }
         }
     }
 
     private void trySetMaxPlayers(int size) {
-        if (mc.gui == null) return;
-        net.minecraft.client.gui.overlay.PlayerTabOverlayGui tabGui = mc.gui.getTabList();
-        if (!reflInit) {
-            reflInit = true;
-            for (Field f : net.minecraft.client.gui.overlay.PlayerTabOverlayGui.class.getDeclaredFields()) {
-                if (f.getType() == int.class) {
-                    try {
-                        f.setAccessible(true);
-                        int v = (int) f.get(tabGui);
-                        if (v >= 20 && v <= 200) { fMaxPlayers = f; break; }
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-        if (fMaxPlayers != null) {
-            try { fMaxPlayers.set(tabGui, size); } catch (Exception ignored) {}
-        }
+        // PlayerTabOverlayGui API not available in Forge 1.16.5 - no-op
     }
 
     private BetterTab getBetterTab() {

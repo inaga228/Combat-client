@@ -32,7 +32,7 @@ public class AutoTotem extends Module {
     @SubscribeEvent
     public void onTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.START) return;
-        if (!isEnabled() || mc.player == null || mc.gameMode == null) return;
+        if (!isEnabled() || mc.player == null || mc.playerController == null) return;
 
         // Уже держит тотем в оффхенде
         if (mc.player.getOffhandItem().getItem() == Items.TOTEM_OF_UNDYING) return;
@@ -82,16 +82,16 @@ public class AutoTotem extends Module {
         int containerSlot = invSlot < 9 ? invSlot + 36 : invSlot;
 
         // Подбираем предмет на курсор
-        mc.gameMode.handleInventoryMouseClick(containerId, containerSlot,
+        mc.playerController.handleInventoryMouseClick(containerId, containerSlot,
                 0, ClickType.PICKUP, mc.player);
 
         // Кладём в оффхенд (slot 45)
-        mc.gameMode.handleInventoryMouseClick(containerId, 45,
+        mc.playerController.handleInventoryMouseClick(containerId, 45,
                 0, ClickType.PICKUP, mc.player);
 
         // Если что-то осталось на курсоре — кладём обратно
         if (!mc.player.inventory.getCarried().isEmpty()) {
-            mc.gameMode.handleInventoryMouseClick(containerId, containerSlot,
+            mc.playerController.handleInventoryMouseClick(containerId, containerSlot,
                     0, ClickType.PICKUP, mc.player);
         }
     }

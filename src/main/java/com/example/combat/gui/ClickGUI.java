@@ -157,8 +157,8 @@ public class ClickGUI extends Screen {
         fillA(ms, p.x, py, 2, HDRH, ACC);
 
         String catLabel = capitalize(p.cat.name());
-        font.draw(ms, catLabel, p.x + 7, py + 5, ACC);
-        font.draw(ms, p.collapsed ? "+" : "-", p.x + PW - 11, py + 5, SUB);
+        font.drawString(ms, catLabel, p.x + 7, py + 5, ACC);
+        font.drawString(ms, p.collapsed ? "+" : "-", p.x + PW - 11, py + 5, SUB);
 
         // Нижняя линия шапки
         fillA(ms, p.x, py + HDRH - 1, PW, 1, 0x30FFFFFF);
@@ -183,11 +183,11 @@ public class ClickGUI extends Screen {
             if (m.isEnabled())  fillA(ms, p.x, ry, 2, ROWH, ACC2);
 
             int tc = m.isEnabled() ? TXT : SUB;
-            font.draw(ms, m.getName(), p.x + 7, ry + 3, tc);
+            font.drawString(ms, m.getName(), p.x + 7, ry + 3, tc);
 
             if (m.getKeyBind() != GLFW.GLFW_KEY_UNKNOWN) {
                 String kb = m.getKeyName();
-                font.draw(ms, kb, p.x + PW - font.width(kb) - 4, ry + 3, 0x44AAAACC);
+                font.drawString(ms, kb, p.x + PW - font.getStringWidth(kb) - 4, ry + 3, 0x44AAAACC);
             }
 
             if (i < mods.size() - 1) fillA(ms, p.x + 4, ry + ROWH - 1, PW - 8, 1, SEP);
@@ -224,7 +224,7 @@ public class ClickGUI extends Screen {
         fillA(ms, sx,     sy,     SW, HDRH,   SHDR);
         fillA(ms, sx,     sy,     2,  HDRH,   ACC2);
 
-        font.draw(ms, setMod.getName(), sx + 6, sy + 5, ACC);
+        font.drawString(ms, setMod.getName(), sx + 6, sy + 5, ACC);
 
         int clipT = sy + HDRH, clipB = clipT + visH;
         enableScissor(sx, clipT, sx + SW, clipB);
@@ -241,7 +241,7 @@ public class ClickGUI extends Screen {
             boolean bh = in(mx, my, sx, by, SW, SBIND_H);
             if (bh) fillA(ms, sx, by, SW, SBIND_H, HOVER_BG);
             String bl = waitBind ? "Press key..." : "Bind: " + setMod.getKeyName();
-            font.draw(ms, bl, sx + 6, by + 4, waitBind ? 0xFFFFAA00 : SUB);
+            font.drawString(ms, bl, sx + 6, by + 4, waitBind ? 0xFFFFAA00 : SUB);
         }
 
         disableScissor();
@@ -264,16 +264,16 @@ public class ClickGUI extends Screen {
         boolean hov = in(mx, my, sx, ry, SW, SROW);
         if (hov) fillA(ms, sx, ry, SW, SROW, HOVER_BG);
 
-        font.draw(ms, s.getName(), sx + 6, ry + 5, SUB);
+        font.drawString(ms, s.getName(), sx + 6, ry + 5, SUB);
 
         Setting.Type t = s.getType();
         if (t == Setting.Type.TOGGLE) {
             boolean v = (Boolean) s.getValue();
-            font.draw(ms, v ? "ON" : "OFF", sx + SW - font.width(v?"ON":"OFF") - 6, ry + 5, v ? 0xFF55FF55 : 0xFFFF5555);
+            font.drawString(ms, v ? "ON" : "OFF", sx + SW - font.getStringWidth(v?"ON":"OFF") - 6, ry + 5, v ? 0xFF55FF55 : 0xFFFF5555);
 
         } else if (t == Setting.Type.ENUM) {
             String lbl = ((Enum<?>) s.getValue()).name();
-            font.draw(ms, lbl, sx + SW - font.width(lbl) - 6, ry + 5, 0xFFFFD700);
+            font.drawString(ms, lbl, sx + SW - font.getStringWidth(lbl) - 6, ry + 5, 0xFFFFD700);
 
         } else if (t == Setting.Type.SLIDER_INT || t == Setting.Type.SLIDER_FLOAT) {
             double val    = s.getValue() instanceof Float ? (Float) s.getValue() : (Integer) s.getValue();
@@ -287,7 +287,7 @@ public class ClickGUI extends Screen {
 
             String vs = s.getValue() instanceof Float
                     ? String.format("%.2f", val) : String.valueOf((int) val);
-            font.draw(ms, vs, sx + SW - font.width(vs) - 6, ry + 5, TXT);
+            font.drawString(ms, vs, sx + SW - font.getStringWidth(vs) - 6, ry + 5, TXT);
         }
 
         if (idx > 0) fillA(ms, sx + 4, ry, SW - 8, 1, SEP);
