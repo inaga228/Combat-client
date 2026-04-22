@@ -7,6 +7,8 @@ import com.example.combat.modules.hud.Notifications;
 import com.example.combat.modules.player.FastPlace;
 import com.example.combat.modules.renderer.BetterTab;
 import com.example.combat.modules.renderer.HandView;
+import com.example.combat.modules.renderer.ESP;
+import com.example.combat.modules.renderer.ItemPhysics;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +27,8 @@ public class ModuleManager {
         // Renderer
         register(new BetterTab());
         register(new HandView());
+        register(new ESP());
+        register(new ItemPhysics());
         // HUD
         register(new Notifications());
     }

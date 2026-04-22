@@ -8,6 +8,8 @@ import com.example.combat.modules.combat.Criticals;
 import com.example.combat.modules.hud.Notifications;
 import com.example.combat.modules.player.FastPlace;
 import com.example.combat.modules.renderer.HandView;
+import com.example.combat.modules.renderer.ESP;
+import com.example.combat.modules.renderer.ItemPhysics;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -37,7 +39,9 @@ public class CombatClient {
         MinecraftForge.EVENT_BUS.register((FastPlace)  moduleManager.getByName("FastPlace"));
         MinecraftForge.EVENT_BUS.register((Criticals)  moduleManager.getByName("Criticals"));
         MinecraftForge.EVENT_BUS.register((AutoTotem)  moduleManager.getByName("AutoTotem"));
-        MinecraftForge.EVENT_BUS.register((HandView)   moduleManager.getByName("HandView"));
+        MinecraftForge.EVENT_BUS.register((HandView)    moduleManager.getByName("HandView"));
+        MinecraftForge.EVENT_BUS.register((ESP)         moduleManager.getByName("ESP"));
+        MinecraftForge.EVENT_BUS.register((ItemPhysics) moduleManager.getByName("ItemPhysics"));
 
         LOGGER.info("[CombatClient] Loaded {} modules", moduleManager.getModules().size());
     }
