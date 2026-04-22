@@ -3,14 +3,9 @@ package com.example.combat;
 import com.example.combat.event.ClientEventHandler;
 import com.example.combat.event.TabListHandler;
 import com.example.combat.modules.ModuleManager;
-import com.example.combat.modules.combat.AutoTotem;
-import com.example.combat.modules.combat.Criticals;
-import com.example.combat.modules.combat.CrystalAura;
-import com.example.combat.modules.hud.*;
-import com.example.combat.modules.player.FastPlace;
-import com.example.combat.modules.renderer.ESP;
-import com.example.combat.modules.renderer.HandView;
-import com.example.combat.modules.renderer.ItemPhysics;
+import com.example.combat.render.CustomItemEntityRenderer;
+import net.minecraft.entity.EntityType;
+import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -29,6 +24,8 @@ public class CombatClient {
 
     public CombatClient() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::clientSetup);
+        // EntityRenderersEvent регистрируется на MOD bus
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onRegisterRenderers);
     }
 
     private void clientSetup(final FMLClientSetupEvent event) {
@@ -37,11 +34,16 @@ public class CombatClient {
         MinecraftForge.EVENT_BUS.register(new ClientEventHandler());
         MinecraftForge.EVENT_BUS.register(new TabListHandler());
 
-        // Регистрируем все модули с @SubscribeEvent
+        // Регистрируем все модули с @SubscribeEvent на FORGE EVENT BUS
         for (com.example.combat.modules.Module m : moduleManager.getModules()) {
             MinecraftForge.EVENT_BUS.register(m);
         }
 
         LOGGER.info("[CombatClient] Loaded {} modules", moduleManager.getModules().size());
+    }
+
+    private void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        // Заменяем стандартный ItemEntityRenderer нашим кастомным
+        event.registerEntityRenderer(EntityType.ITEM, CustomItemEntityRenderer::new);
     }
 }
