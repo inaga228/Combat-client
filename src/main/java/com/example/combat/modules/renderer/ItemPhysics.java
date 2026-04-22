@@ -99,7 +99,8 @@ public class ItemPhysics extends Module {
                 ms.translate(-0.5f, -0.5f, 0f);
             }
 
-            ms.scale(0.25f, 0.25f, 0.25f);
+            // Размер как в ванилле (0.5 = полноценный предмет на земле)
+            ms.scale(0.5f, 0.5f, 0.5f);
             ms.translate(-0.5, -0.5, -0.5);
 
             int light = mc.getEntityRenderDispatcher().getPackedLightCoords(item, pt);
