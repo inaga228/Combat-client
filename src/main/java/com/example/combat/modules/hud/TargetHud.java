@@ -57,7 +57,7 @@ public class TargetHud extends Module {
 
         // Имя цели
         String name = target instanceof PlayerEntity
-            ? target.getGameProfile().getName()
+            ? ((PlayerEntity) target).getGameProfile().getName()
             : target.getName().getString();
         if (name.length() > 14) name = name.substring(0, 13) + "…";
         mc.font.drawShadow(ms, name, x + 4, y + 4, COL_NAME);

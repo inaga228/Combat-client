@@ -23,7 +23,7 @@ public class FpsHud extends Module {
         if (!isEnabled()) return;
         if (event.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
 
-        int fps = mc.getFps();
+        int fps = net.minecraft.client.Minecraft.fps;
         String text = "FPS: " + fps;
 
         int x = posX.getValue();
