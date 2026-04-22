@@ -5,17 +5,10 @@ import com.example.combat.event.TabListHandler;
 import com.example.combat.modules.ModuleManager;
 import com.example.combat.modules.combat.AutoTotem;
 import com.example.combat.modules.combat.Criticals;
+import com.example.combat.modules.combat.CrystalAura;
 import com.example.combat.modules.hud.Notifications;
 import com.example.combat.modules.player.FastPlace;
 import com.example.combat.modules.renderer.HandView;
-import com.example.combat.modules.hud.ModuleListHud;
-import com.example.combat.modules.hud.WatermarkHud;
-import com.example.combat.modules.hud.FpsHud;
-import com.example.combat.modules.hud.TotemHud;
-import com.example.combat.modules.hud.CrystalHud;
-import com.example.combat.modules.hud.TargetHud;
-import com.example.combat.modules.renderer.ESP;
-import com.example.combat.modules.renderer.ItemPhysics;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -42,19 +35,11 @@ public class CombatClient {
         MinecraftForge.EVENT_BUS.register(new ClientEventHandler());
         MinecraftForge.EVENT_BUS.register(new Notifications());
         MinecraftForge.EVENT_BUS.register(new TabListHandler());
-        MinecraftForge.EVENT_BUS.register((FastPlace)  moduleManager.getByName("FastPlace"));
-        MinecraftForge.EVENT_BUS.register((Criticals)  moduleManager.getByName("Criticals"));
-        MinecraftForge.EVENT_BUS.register((AutoTotem)  moduleManager.getByName("AutoTotem"));
+        MinecraftForge.EVENT_BUS.register((FastPlace)   moduleManager.getByName("FastPlace"));
+        MinecraftForge.EVENT_BUS.register((Criticals)   moduleManager.getByName("Criticals"));
+        MinecraftForge.EVENT_BUS.register((AutoTotem)   moduleManager.getByName("AutoTotem"));
+        MinecraftForge.EVENT_BUS.register((CrystalAura) moduleManager.getByName("CrystalAura"));
         MinecraftForge.EVENT_BUS.register((HandView)    moduleManager.getByName("HandView"));
-        MinecraftForge.EVENT_BUS.register((ESP)         moduleManager.getByName("ESP"));
-        MinecraftForge.EVENT_BUS.register((ItemPhysics) moduleManager.getByName("ItemPhysics"));
-
-        MinecraftForge.EVENT_BUS.register((ModuleListHud) moduleManager.getByName("ModuleList"));
-        MinecraftForge.EVENT_BUS.register((WatermarkHud)  moduleManager.getByName("Watermark"));
-        MinecraftForge.EVENT_BUS.register((FpsHud)        moduleManager.getByName("FpsHud"));
-        MinecraftForge.EVENT_BUS.register((TotemHud)      moduleManager.getByName("TotemHud"));
-        MinecraftForge.EVENT_BUS.register((CrystalHud)    moduleManager.getByName("CrystalHud"));
-        MinecraftForge.EVENT_BUS.register((TargetHud)     moduleManager.getByName("TargetHud"));
 
         LOGGER.info("[CombatClient] Loaded {} modules", moduleManager.getModules().size());
     }

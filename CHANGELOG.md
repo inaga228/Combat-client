@@ -1,21 +1,28 @@
 # Changelog
 
+## [1.4.0]
+### Added
+- **CrystalAura** (Combat) — порт с Meteor Client. Автоматически ставит кристаллы на обсидиан/бедрок и взрывает их для нанесения урона.
+  - Настройки: TargetRange, MinDamage, MaxSelfDmg, AntiSuicide
+  - Rotate: Packet / Client / None
+  - Swing: Client / Packet / None  
+  - Switch: Normal / Silent / None + SwitchDelay
+  - Place: PlaceDelay, PlaceRange, PlaceWalls
+  - Break: BreakDelay, BreakRange, BreakWalls, BreakAttempts
+
 ## [1.3.0]
 ### Added
-- **BetterTab** (Renderer) — порт с Meteor Client. Подсветка себя в таб-листе своим цветом (R/G/B), отображение геймода рядом с ником, настройка размера таб-листа и высоты колонки.
-- **HandView** (Renderer) — порт с Meteor Client. Позиция/поворот/масштаб главной руки и оффхенда через RenderHandEvent. SwingMode (None/Offhand/Mainhand), SwingSpeed, OldAnims.
+- **BetterTab**, **HandView** (Renderer)
 
 ## [1.2.0]
 ### Added
-- **Criticals** — порт с Meteor Client. Режимы: Packet, Jump, MiniJump, None.
-- **AutoTotem** — порт с Meteor Client. Режимы: Smart и Strict.
-### Changed
-- **ClickGUI** — анимации, GL Scissor, скролл колёсиком, полоска скролла.
+- **Criticals**, **AutoTotem** (Combat)
+- **ClickGUI** — анимации, скролл, GL Scissor
 
 ## [1.1.0]
 ### Changed
-- Оставлены только KillAura (улучшенная) и FastPlace.
+- KillAura переписана (Meteor порт), FastPlace
 
 ## [1.0.0]
 ### Added
-- Initial release.
+- Initial release
