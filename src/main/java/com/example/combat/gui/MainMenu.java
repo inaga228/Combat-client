@@ -77,7 +77,7 @@ public class MainMenu extends Screen {
 
     // ── Кастомная кнопка ──────────────────────────────────────────────
     private class CCButton extends Button {
-        CCButton(int x, int y, String text, Button.OnPress onPress) {
+        CCButton(int x, int y, String text, Button.IPressable onPress) {
             super(x, y, BTN_W, BTN_H, new StringTextComponent(text), onPress);
         }
 

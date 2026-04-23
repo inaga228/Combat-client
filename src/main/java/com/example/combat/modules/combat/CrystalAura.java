@@ -293,7 +293,7 @@ public class CrystalAura extends Module {
         // Броня
         raw *= 1.0 - Math.min(20.0, entity.getArmorValue()) / 25.0;
         // Сопротивление
-        var res = entity.getEffect(Effects.DAMAGE_RESISTANCE);
+        net.minecraft.potion.EffectInstance res = entity.getEffect(Effects.DAMAGE_RESISTANCE);
         if (res != null) raw *= 1.0 - (res.getAmplifier()+1)*0.2;
         return (float) Math.max(0, raw);
     }
