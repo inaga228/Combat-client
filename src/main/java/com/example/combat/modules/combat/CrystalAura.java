@@ -48,6 +48,7 @@ public class CrystalAura extends Module {
     // ══ Enums ════════════════════════════════════════════════════════════
     public enum SwitchMode { NORMAL, SILENT, NONE }
     public enum Phase      { IDLE, APPROACH, SWORD_HIT, PLACE, BREAK }
+    public enum TargetMode { PLAYERS, MOBS, ALL }
 
     // ══ Настройки ════════════════════════════════════════════════════════
     public final Setting<Float>      targetRange    = new Setting<>("TargetRange",   10.0f).range(3, 16);
@@ -56,6 +57,7 @@ public class CrystalAura extends Module {
     public final Setting<Float>      maxSelfDmg     = new Setting<>("MaxSelfDmg",    8.0f).range(0, 36);
     public final Setting<Boolean>    antiSuicide    = new Setting<>("AntiSuicide",   true);
     public final Setting<SwitchMode> switchMode     = new Setting<>("Switch",        SwitchMode.SILENT);
+    public final Setting<TargetMode> targetMode     = new Setting<>("Targets",       TargetMode.PLAYERS);
     public final Setting<Integer>    placeDelay     = new Setting<>("PlaceDelay",    3).range(0, 10);
     public final Setting<Integer>    breakDelay     = new Setting<>("BreakDelay",    1).range(0, 10);
     public final Setting<Integer>    swordHitDelay  = new Setting<>("SwordDelay",    4).range(1, 10);
@@ -71,7 +73,7 @@ public class CrystalAura extends Module {
     private boolean switched     = false;
     private int     breakTick    = 0;
     private int     placeTick    = 0;
-    private PlayerEntity lastTarget = null;
+    private LivingEntity lastTarget = null;
 
     // Счётчик попыток по кристаллам
     private final Map<Integer, Integer> attempts = new HashMap<>();
@@ -95,7 +97,7 @@ public class CrystalAura extends Module {
         if (event.phase != TickEvent.Phase.START) return;
         if (!isEnabled() || mc.player == null || mc.level == null) return;
 
-        PlayerEntity target = findTarget();
+        LivingEntity target = findTarget();
         if (target == null) { returnSlot(); phase = Phase.IDLE; return; }
         lastTarget = target;
 
@@ -184,13 +186,13 @@ public class CrystalAura extends Module {
     }
 
     // ══ Поиск цели ═══════════════════════════════════════════════════════
-    private PlayerEntity findTarget() {
+    private LivingEntity findTarget() {
         float r = targetRange.getValue();
         AxisAlignedBB box = mc.player.getBoundingBox().inflate(r);
-        PlayerEntity best = null;
+        LivingEntity best = null;
         double bestDist = Double.MAX_VALUE;
-        for (PlayerEntity p : mc.level.getEntitiesOfClass(PlayerEntity.class, box,
-                e -> e != mc.player && e.isAlive() && !e.isCreative())) {
+        for (LivingEntity p : mc.level.getEntitiesOfClass(LivingEntity.class, box,
+                e -> { if (e == mc.player || !e.isAlive()) return false; TargetMode m = targetMode.getValue(); if (m == TargetMode.PLAYERS) return e instanceof PlayerEntity && !((PlayerEntity)e).isCreative(); if (m == TargetMode.MOBS) return e instanceof net.minecraft.entity.monster.IMob; return true; })) {
             double d = mc.player.distanceTo(p);
             if (d < bestDist) { bestDist = d; best = p; }
         }
@@ -198,7 +200,7 @@ public class CrystalAura extends Module {
     }
 
     // ══ Лучшая позиция для кристалла ═════════════════════════════════════
-    private BlockPos findBestPlacement(PlayerEntity target) {
+    private BlockPos findBestPlacement(LivingEntity target) {
         float r = placeRange.getValue();
         BlockPos tPos = target.blockPosition();
         BlockPos best = null;
@@ -232,7 +234,7 @@ public class CrystalAura extends Module {
     }
 
     // ══ Лучший кристалл для взрыва ═══════════════════════════════════════
-    private EnderCrystalEntity findBestCrystal(PlayerEntity target) {
+    private EnderCrystalEntity findBestCrystal(LivingEntity target) {
         float r = breakRange.getValue();
         AxisAlignedBB box = mc.player.getBoundingBox().inflate(r);
         EnderCrystalEntity best = null;
@@ -299,7 +301,7 @@ public class CrystalAura extends Module {
     }
 
     // ══ Поворот (серверный — пакетом, незаметно) ═════════════════════════
-    private void faceEntity(PlayerEntity e) {
+    private void faceEntity(LivingEntity e) {
         facePos(e.position().add(0, e.getBbHeight()*0.5, 0));
     }
 
