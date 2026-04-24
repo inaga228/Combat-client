@@ -1,35 +1,28 @@
 package com.example.combat.gui;
 
 import com.example.combat.CombatClientMod;
+import com.example.combat.module.Module;
+import com.example.combat.module.setting.BooleanSetting;
+import com.example.combat.module.setting.ModeSetting;
+import com.example.combat.module.setting.NumberSetting;
+import com.example.combat.module.setting.Setting;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * ClickGUI — Fabric 1.21.1
- * Пока пустая — только каркас с красивым фоном.
- * Модули будут добавлены позже.
- */
+import java.util.ArrayList;
+import java.util.List;
+
 public class ClickGUI extends Screen {
+    private static final int PANEL_W = 440;
+    private static final int PANEL_H = 280;
 
-    // ── Палитра ─────────────────────────────────────────────────────────
-    private static final int BG       = color(8,   8,  16, 220);
-    private static final int ACCENT   = color(88,  80, 220, 255);
-    private static final int ACCENT2  = color(160, 80, 240, 255);
-    private static final int HDR      = color(14,  12,  28, 255);
-    private static final int TXT      = color(220, 215,255, 255);
-    private static final int GRAY     = color(100,  95,150, 255);
-
-    // Анимация открытия
-    private float openAnim = 0f;
+    private float openAnim;
 
     public ClickGUI() {
-        super(Text.literal(""));
+        super(Text.literal("Combat ClickGUI"));
     }
-
-    @Override
-    public boolean shouldPause() { return false; }
 
     @Override
     protected void init() {
@@ -37,61 +30,62 @@ public class ClickGUI extends Screen {
     }
 
     @Override
+    public boolean shouldPause() {
+        return false;
+    }
+
+    @Override
     public void render(DrawContext ctx, int mx, int my, float delta) {
-        openAnim = Math.min(1f, openAnim + delta * 0.12f);
-        float ease = 1f - (1f - openAnim) * (1f - openAnim); // ease-out
+        openAnim = Math.min(1f, openAnim + delta * 0.15f);
+        float ease = 1f - (1f - openAnim) * (1f - openAnim);
 
-        int sw = width, sh = height;
+        int px = (width - PANEL_W) / 2;
+        int py = (int) ((height - PANEL_H) / 2f + (1f - ease) * 24f);
 
-        // Затемнённый фон
-        ctx.fillGradient(0, 0, sw, sh / 2,
-            color(0, 0, 14, (int)(180 * ease)),
-            color(0, 0, 14, (int)(180 * ease)));
-        ctx.fillGradient(0, sh / 2, sw, sh,
-            color(0, 0, 14, (int)(180 * ease)),
-            color(5,  0, 28, (int)(195 * ease)));
+        ctx.fill(0, 0, width, height, color(0, 0, 0, (int) (165 * ease)));
+        ctx.fill(px, py, px + PANEL_W, py + PANEL_H, color(10, 10, 22, 245));
+        ctx.fill(px, py, px + PANEL_W, py + 24, color(18, 16, 40, 255));
+        ctx.drawTextWithShadow(textRenderer, "Combat Client • Build modules", px + 8, py + 8, color(220, 215, 255, 255));
 
-        // Центральная панель
-        int pw = 340, ph = 220;
-        int px = (sw - pw) / 2;
-        int py = (int)((sh - ph) / 2 + (1f - ease) * 30);
+        int y = py + 34;
+        int lineHeight = 12;
+        for (RenderLine line : buildLines()) {
+            boolean hover = mx >= px + 8 && mx <= px + PANEL_W - 8 && my >= y - 1 && my <= y + lineHeight;
+            int bg = hover ? color(40, 35, 70, 120) : color(0, 0, 0, 0);
+            ctx.fill(px + 6, y - 1, px + PANEL_W - 6, y + lineHeight, bg);
+            ctx.drawTextWithShadow(textRenderer, line.label(), px + 10, y + 1, line.color());
+            y += lineHeight + 2;
+            if (y > py + PANEL_H - 16) {
+                break;
+            }
+        }
 
-        // Тень
-        ctx.fill(px + 5, py + 5, px + pw + 5, py + ph + 5, color(0, 0, 0, (int)(100 * ease)));
-
-        // Фон панели
-        ctx.fill(px, py, px + pw, py + ph, color(10, 9, 20, (int)(245 * ease)));
-
-        // Шапка с градиентом
-        ctx.fillGradient(px, py, px + pw, py + 28, color(16, 14, 36, (int)(255 * ease)), color(20, 16, 44, (int)(255 * ease)));
-
-        // Акцентная линия сверху
-        ctx.fillGradient(px, py, px + pw / 2, py + 2, color(88, 80, 220, (int)(255 * ease)), color(160, 80, 240, (int)(255 * ease)));
-        ctx.fillGradient(px + pw / 2, py, px + pw, py + 2, color(160, 80, 240, (int)(255 * ease)), color(88, 80, 220, (int)(255 * ease)));
-
-        // Разделитель шапки
-        ctx.fill(px, py + 28, px + pw, py + 29, color(255, 255, 255, (int)(18 * ease)));
-
-        // Заголовок
-        String title = CombatClientMod.NAME;
-        int tx = px + pw / 2 - textRenderer.getWidth(title) / 2;
-        ctx.drawTextWithShadow(textRenderer, title, tx, py + 10, color(210, 200, 255, (int)(255 * ease)));
-
-        // Подзаголовок "Coming soon"
-        String sub = "Modules coming soon...";
-        int sx2 = px + pw / 2 - textRenderer.getWidth(sub) / 2;
-        ctx.drawTextWithShadow(textRenderer, sub, sx2, py + ph / 2 - 4, color(80, 75, 120, (int)(200 * ease)));
-
-        // Подсказка снизу
-        String hint = "[ Right Shift ] to open  •  [ Esc ] to close";
-        int hx = px + pw / 2 - textRenderer.getWidth(hint) / 2;
-        ctx.drawTextWithShadow(textRenderer, hint, hx, py + ph - 14, color(60, 55, 100, (int)(180 * ease)));
-
-        // Акцентная линия снизу
-        ctx.fillGradient(px, py + ph - 1, px + pw / 2, py + ph, color(88, 80, 220, (int)(200 * ease)), color(160, 80, 240, (int)(200 * ease)));
-        ctx.fillGradient(px + pw / 2, py + ph - 1, px + pw, py + ph, color(160, 80, 240, (int)(200 * ease)), color(88, 80, 220, (int)(200 * ease)));
+        ctx.drawTextWithShadow(textRenderer,
+            "LMB: toggle/inc • RMB: expand/dec • MMB: mode prev • ESC: close",
+            px + 8,
+            py + PANEL_H - 12,
+            color(145, 140, 200, 220));
 
         super.render(ctx, mx, my, delta);
+    }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        int px = (width - PANEL_W) / 2;
+        int py = (height - PANEL_H) / 2;
+        int y = py + 34;
+        int lineHeight = 12;
+
+        for (RenderLine line : buildLines()) {
+            boolean hover = mx >= px + 8 && mx <= px + PANEL_W - 8 && my >= y - 1 && my <= y + lineHeight;
+            if (hover) {
+                line.click(button);
+                return true;
+            }
+            y += lineHeight + 2;
+        }
+
+        return super.mouseClicked(mx, my, button);
     }
 
     @Override
@@ -103,7 +97,66 @@ public class ClickGUI extends Screen {
         return super.keyPressed(key, scan, mods);
     }
 
+    private List<RenderLine> buildLines() {
+        List<RenderLine> lines = new ArrayList<>();
+        for (Module module : CombatClientMod.moduleManager.getModules()) {
+            lines.add(new RenderLine(
+                "[" + (module.isEnabled() ? "ON" : "OFF") + "] " + module.getName(),
+                module.isEnabled() ? color(155, 255, 170, 255) : color(255, 145, 145, 255),
+                button -> {
+                    if (button == 0) {
+                        module.toggle();
+                    }
+                }
+            ));
+
+            for (Setting setting : module.getSettings()) {
+                lines.add(new RenderLine(
+                    "    • " + setting.getName() + ": " + setting.getDisplayValue(),
+                    color(190, 185, 240, 255),
+                    button -> mutateSetting(setting, button)
+                ));
+            }
+        }
+        return lines;
+    }
+
+    private void mutateSetting(Setting setting, int button) {
+        if (setting instanceof BooleanSetting boolSetting && (button == 0 || button == 1)) {
+            boolSetting.toggle();
+            return;
+        }
+
+        if (setting instanceof NumberSetting numberSetting) {
+            if (button == 0) {
+                numberSetting.increase();
+            } else if (button == 1) {
+                numberSetting.decrease();
+            }
+            return;
+        }
+
+        if (setting instanceof ModeSetting modeSetting) {
+            if (button == 2) {
+                modeSetting.prev();
+            } else if (button == 0 || button == 1) {
+                modeSetting.next();
+            }
+        }
+    }
+
     private static int color(int r, int g, int b, int a) {
         return (a & 0xFF) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 | (b & 0xFF);
+    }
+
+    private record RenderLine(String label, int color, ClickAction clickAction) {
+        void click(int button) {
+            clickAction.click(button);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ClickAction {
+        void click(int button);
     }
 }
