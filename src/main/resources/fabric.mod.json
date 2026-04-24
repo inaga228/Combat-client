@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "combat-client",
+  "version": "1.0.0",
+  "name": "Combat Client",
+  "description": "A PvP client mod",
+  "authors": ["inaga228"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.example.combat.CombatClientMod"]
+  },
+  "mixins": ["combat-client.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  }
+}

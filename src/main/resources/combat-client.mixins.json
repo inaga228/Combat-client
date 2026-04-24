@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "com.example.combat.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": ["TitleScreenMixin"],
+  "injectors": { "defaultRequire": 1 }
+}
