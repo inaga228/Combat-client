@@ -1,10 +1,12 @@
 package com.example.combat;
 
 import com.example.combat.gui.ClickGUI;
+import com.example.combat.modules.building.FastPlaceModule;
+import com.example.combat.modules.building.ScaffoldModule;
+import com.example.combat.modules.building.TowerModule;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
@@ -29,11 +31,19 @@ public class CombatClientMod implements ClientModInitializer {
         clickGUI = new ClickGUI();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            // ── Открытие GUI ───────────────────────────────────────────
             while (openGuiKey.wasPressed()) {
                 if (client.currentScreen == null) {
                     client.setScreen(clickGUI);
                 }
             }
+
+            if (client.world == null || client.player == null) return;
+
+            // ── Building модули ────────────────────────────────────────
+            ScaffoldModule.tick();
+            TowerModule.tick();
+            // FastPlace работает через mixin — тик не нужен
         });
     }
 }

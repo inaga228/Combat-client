@@ -2,6 +2,9 @@
   "required": true,
   "package": "com.example.combat.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": ["TitleScreenMixin"],
+  "client": [
+    "TitleScreenMixin",
+    "MixinFastPlace"
+  ],
   "injectors": { "defaultRequire": 1 }
 }
