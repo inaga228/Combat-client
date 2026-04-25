@@ -4,6 +4,7 @@ import com.example.combat.gui.ClickGUI;
 import com.example.combat.modules.building.FastPlaceModule;
 import com.example.combat.modules.building.ScaffoldModule;
 import com.example.combat.modules.building.TowerModule;
+import com.example.combat.modules.client.OptimizationModule;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -39,6 +40,7 @@ public class CombatClientMod implements ClientModInitializer {
 
             if (client.world == null || client.player == null) return;
 
+            OptimizationModule.tick(client);
             ScaffoldModule.tick(client);
             TowerModule.tick(client);
         });

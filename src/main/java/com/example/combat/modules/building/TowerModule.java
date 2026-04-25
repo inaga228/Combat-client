@@ -17,14 +17,17 @@ public class TowerModule {
 
     public static boolean enabled = false;
     public static int     speed   = 2;   // блоков в секунду (1..5)
+    public static boolean legitMovement = true; // ограниченный режим без "рывков"
 
     private static int tickCounter = 0;
 
     public static void tick(MinecraftClient mc) {
         if (!enabled || mc.player == null || mc.world == null) return;
         if (!mc.options.keySneak.isPressed()) return; // держи Shift для активации
+        if (legitMovement && !mc.player.isOnGround()) return;
 
-        int ticksPerBlock = Math.max(1, 20 / speed);
+        int effectiveSpeed = legitMovement ? Math.min(speed, 2) : speed;
+        int ticksPerBlock = Math.max(1, 20 / effectiveSpeed);
         tickCounter++;
         if (tickCounter < ticksPerBlock) return;
         tickCounter = 0;

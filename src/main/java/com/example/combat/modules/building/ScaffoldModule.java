@@ -19,11 +19,13 @@ public class ScaffoldModule {
     public static boolean enabled  = false;
     public static int     delay    = 0;     // задержка в тиках между блоками
     public static boolean safeWalk = true;  // снижение скорости на краях
+    public static boolean legitMovement = true; // только "ванильный" режим без резких движений
 
     private static int ticksSinceLast = 0;
 
     public static void tick(MinecraftClient mc) {
         if (!enabled || mc.player == null || mc.world == null) return;
+        if (legitMovement && !mc.player.isOnGround()) return;
 
         // SafeWalk — не падать с краёв
         if (safeWalk) {
