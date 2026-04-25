@@ -51,7 +51,7 @@ public class ClickGUI extends Screen {
         super(new LiteralText(""));
     }
 
-    @Override public boolean shouldPause() { return false; }
+    @Override public boolean isPauseScreen() { return false; }
 
     // ─── Рендер ──────────────────────────────────────────────────────────
     @Override
@@ -272,5 +272,14 @@ public class ClickGUI extends Screen {
 
     private static int color(int r, int g, int b, int a) {
         return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    private void drawTextWithShadow(MatrixStack ms,
+                                    net.minecraft.client.font.TextRenderer renderer,
+                                    String text,
+                                    int x,
+                                    int y,
+                                    int color) {
+        renderer.drawWithShadow(ms, text, x, y, color);
     }
 }
