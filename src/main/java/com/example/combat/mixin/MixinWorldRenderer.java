@@ -24,4 +24,11 @@ public class MixinWorldRenderer {
             ci.cancel();
         }
     }
+
+    @Inject(method = "renderWeather", at = @At("HEAD"), cancellable = true)
+    private void cancelWeather(float tickDelta, CallbackInfo ci) {
+        if (OptimizationModule.enabled && OptimizationModule.disableWeather) {
+            ci.cancel();
+        }
+    }
 }

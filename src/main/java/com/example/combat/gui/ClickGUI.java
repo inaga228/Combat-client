@@ -45,7 +45,7 @@ public class ClickGUI extends Screen {
 
     // Панель настроек
     private static final int SW  = 200;
-    private static final int SH  = 110;
+    private static final int SH  = 124;
 
     public ClickGUI() {
         super(new LiteralText(""));
@@ -146,6 +146,8 @@ public class ClickGUI extends Screen {
                 ly += 12;
                 drawTextWithShadow(ms, textRenderer, "§fDisable Fog: " + (OptimizationModule.disableFog ? "§aON" : "§cOFF"), x + 5, ly, TXT);
                 ly += 12;
+                drawTextWithShadow(ms, textRenderer, "§fDisable Weather: " + (OptimizationModule.disableWeather ? "§aON" : "§cOFF"), x + 5, ly, TXT);
+                ly += 12;
                 drawTextWithShadow(ms, textRenderer, "§fRender Boost: " + (OptimizationModule.renderBoost ? "§aON" : "§cOFF"), x + 5, ly, TXT);
                 ly += 12;
                 drawTextWithShadow(ms, textRenderer, "§8[Scroll toggles next option]", x + 5, ly, GRAY);
@@ -240,7 +242,8 @@ public class ClickGUI extends Screen {
 
     private void toggleOptimizationOption(int delta) {
         if (delta == 0) return;
-        optimizationToggleIndex = (optimizationToggleIndex + 1) % 5;
+        int step = delta > 0 ? 1 : -1;
+        optimizationToggleIndex = (optimizationToggleIndex + step + 6) % 6;
         switch (optimizationToggleIndex) {
             case 0:
                 OptimizationModule.disableParticles = !OptimizationModule.disableParticles;
@@ -255,6 +258,9 @@ public class ClickGUI extends Screen {
                 OptimizationModule.disableFog = !OptimizationModule.disableFog;
                 break;
             case 4:
+                OptimizationModule.disableWeather = !OptimizationModule.disableWeather;
+                break;
+            case 5:
                 OptimizationModule.renderBoost = !OptimizationModule.renderBoost;
                 break;
         }
