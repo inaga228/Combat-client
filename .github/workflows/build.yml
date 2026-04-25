@@ -33,4 +33,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: combat-client-jar
-          path: build/libs/*-fat.jar
+          path: build/libs/!(*-dev|*-sources).jar
