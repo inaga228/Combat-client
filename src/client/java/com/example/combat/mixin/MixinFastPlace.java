@@ -9,8 +9,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * Перехватывает проверку itemUseCooldown в MinecraftClient.doItemUse().
- * Когда FastPlace включён — возвращаем 0 вместо реального кулдауна.
+ * Перехватывает проверку itemUseCooldown в MinecraftClient.
+ * В 1.21.1 метод называется interactItem (intermediary: method_1611).
  */
 @Mixin(MinecraftClient.class)
 public class MixinFastPlace {
@@ -18,7 +18,7 @@ public class MixinFastPlace {
     @Shadow private int itemUseCooldown;
 
     @Redirect(
-        method = "doItemUse",
+        method = "method_1611",  // intermediary-имя interactItem в 1.21.1
         at = @At(
             value = "FIELD",
             target = "Lnet/minecraft/client/MinecraftClient;itemUseCooldown:I",
@@ -27,7 +27,6 @@ public class MixinFastPlace {
     )
     private int redirectItemUseCooldown(MinecraftClient instance) {
         if (!FastPlaceModule.enabled) return this.itemUseCooldown;
-        // onlyBlocks — проверяем что в руке блок
         if (FastPlaceModule.onlyBlocks) {
             var player = instance.player;
             if (player == null) return this.itemUseCooldown;
