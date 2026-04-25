@@ -3,6 +3,7 @@ package com.example.combat.gui;
 import com.example.combat.modules.building.FastPlaceModule;
 import com.example.combat.modules.building.ScaffoldModule;
 import com.example.combat.modules.building.TowerModule;
+import com.example.combat.modules.client.OptimizationModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.util.math.MatrixStack;
@@ -34,12 +35,13 @@ public class ClickGUI extends Screen {
     private static final int PAD   = 5;
 
     // ─── Список модулей ───────────────────────────────────────────────────
-    // index 0 = Scaffold, 1 = Tower, 2 = FastPlace
-    private static final String[] NAMES = {"Scaffold", "Tower", "Fast Place"};
+    // index 0 = Scaffold, 1 = Tower, 2 = FastPlace, 3 = Optimization
+    private static final String[] NAMES = {"Scaffold", "Tower", "Fast Place", "Optimization"};
 
     // ─── Состояние ───────────────────────────────────────────────────────
     private int hovered  = -1;
     private int settings = -1;   // какой модуль открыт в настройках (-1 = никакой)
+    private int optimizationToggleIndex = 0;
 
     // Панель настроек
     private static final int SW  = 200;
@@ -115,11 +117,15 @@ public class ClickGUI extends Screen {
                 drawSliderHint(ms, x, ly, SW);
                 ly += 16;
                 drawTextWithShadow(ms, textRenderer, "§fSafe Walk: " + (ScaffoldModule.safeWalk ? "§aON" : "§cOFF"), x + 5, ly, TXT);
+                ly += 12;
+                drawTextWithShadow(ms, textRenderer, "§fLegit Movement: " + (ScaffoldModule.legitMovement ? "§aON" : "§cOFF"), x + 5, ly, TXT);
                 break;
             case 1: // Tower
                 drawTextWithShadow(ms, textRenderer, "§7Builds tower upward.", x + 5, ly, GRAY);
                 ly += 14;
                 drawTextWithShadow(ms, textRenderer, "§fSpeed: §b" + TowerModule.speed + " b/s", x + 5, ly, TXT);
+                ly += 12;
+                drawTextWithShadow(ms, textRenderer, "§fLegit Movement: " + (TowerModule.legitMovement ? "§aON" : "§cOFF"), x + 5, ly, TXT);
                 break;
             case 2: // FastPlace
                 drawTextWithShadow(ms, textRenderer, "§7Removes placement delay.", x + 5, ly, GRAY);
@@ -128,6 +134,21 @@ public class ClickGUI extends Screen {
                 drawSliderHint(ms, x, ly, SW);
                 ly += 16;
                 drawTextWithShadow(ms, textRenderer, "§fOnly Blocks: " + (FastPlaceModule.onlyBlocks ? "§aON" : "§cOFF"), x + 5, ly, TXT);
+                break;
+            case 3: // Optimization
+                drawTextWithShadow(ms, textRenderer, "§7OptiFine-like visual optimization.", x + 5, ly, GRAY);
+                ly += 14;
+                drawTextWithShadow(ms, textRenderer, "§fDisable Particles: " + (OptimizationModule.disableParticles ? "§aON" : "§cOFF"), x + 5, ly, TXT);
+                ly += 12;
+                drawTextWithShadow(ms, textRenderer, "§fDisable Sky/Stars: " + (OptimizationModule.disableSky ? "§aON" : "§cOFF"), x + 5, ly, TXT);
+                ly += 12;
+                drawTextWithShadow(ms, textRenderer, "§fDisable Clouds: " + (OptimizationModule.disableClouds ? "§aON" : "§cOFF"), x + 5, ly, TXT);
+                ly += 12;
+                drawTextWithShadow(ms, textRenderer, "§fDisable Fog: " + (OptimizationModule.disableFog ? "§aON" : "§cOFF"), x + 5, ly, TXT);
+                ly += 12;
+                drawTextWithShadow(ms, textRenderer, "§fRender Boost: " + (OptimizationModule.renderBoost ? "§aON" : "§cOFF"), x + 5, ly, TXT);
+                ly += 12;
+                drawTextWithShadow(ms, textRenderer, "§8[Scroll toggles next option]", x + 5, ly, GRAY);
                 break;
         }
     }
@@ -186,6 +207,7 @@ public class ClickGUI extends Screen {
             case 0: return ScaffoldModule.enabled;
             case 1: return TowerModule.enabled;
             case 2: return FastPlaceModule.enabled;
+            case 3: return OptimizationModule.enabled;
         }
         return false;
     }
@@ -195,10 +217,11 @@ public class ClickGUI extends Screen {
             case 0: ScaffoldModule.enabled = !ScaffoldModule.enabled; break;
             case 1: TowerModule.enabled    = !TowerModule.enabled;    break;
             case 2: FastPlaceModule.enabled = !FastPlaceModule.enabled; break;
+            case 3: OptimizationModule.enabled = !OptimizationModule.enabled; break;
         }
     }
 
-    private static void adjustSetting(int mod, int delta) {
+    private void adjustSetting(int mod, int delta) {
         switch (mod) {
             case 0: // Scaffold delay 0..10
                 ScaffoldModule.delay = clamp(ScaffoldModule.delay + delta, 0, 10);
@@ -208,6 +231,31 @@ public class ClickGUI extends Screen {
                 break;
             case 2: // FastPlace cooldown 0..4
                 FastPlaceModule.cooldown = clamp(FastPlaceModule.cooldown + delta, 0, 4);
+                break;
+            case 3:
+                toggleOptimizationOption(delta);
+                break;
+        }
+    }
+
+    private void toggleOptimizationOption(int delta) {
+        if (delta == 0) return;
+        optimizationToggleIndex = (optimizationToggleIndex + 1) % 5;
+        switch (optimizationToggleIndex) {
+            case 0:
+                OptimizationModule.disableParticles = !OptimizationModule.disableParticles;
+                break;
+            case 1:
+                OptimizationModule.disableSky = !OptimizationModule.disableSky;
+                break;
+            case 2:
+                OptimizationModule.disableClouds = !OptimizationModule.disableClouds;
+                break;
+            case 3:
+                OptimizationModule.disableFog = !OptimizationModule.disableFog;
+                break;
+            case 4:
+                OptimizationModule.renderBoost = !OptimizationModule.renderBoost;
                 break;
         }
     }
