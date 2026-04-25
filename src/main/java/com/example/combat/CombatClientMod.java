@@ -25,25 +25,22 @@ public class CombatClientMod implements ClientModInitializer {
             "key.combat-client.opengui",
             InputUtil.Type.KEYSYM,
             GLFW.GLFW_KEY_RIGHT_SHIFT,
-            "category.combat-client"
+            "Combat Client"
         ));
 
         clickGUI = new ClickGUI();
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // ── Открытие GUI ───────────────────────────────────────────
             while (openGuiKey.wasPressed()) {
                 if (client.currentScreen == null) {
-                    client.setScreen(clickGUI);
+                    client.openScreen(clickGUI);
                 }
             }
 
             if (client.world == null || client.player == null) return;
 
-            // ── Building модули ────────────────────────────────────────
-            ScaffoldModule.tick();
-            TowerModule.tick();
-            // FastPlace работает через mixin — тик не нужен
+            ScaffoldModule.tick(client);
+            TowerModule.tick(client);
         });
     }
 }

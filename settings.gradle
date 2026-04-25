@@ -1,6 +1,7 @@
 pluginManagement {
-	repositories {
-		maven { url = 'https://maven.fabricmc.net/' }
-		gradlePluginPortal()
-	}
+    repositories {
+        maven { url = uri("https://maven.fabricmc.net/") }
+        gradlePluginPortal()
+    }
 }
+rootProject.name = "combat-client"

@@ -1,47 +1,33 @@
 plugins {
-	id 'fabric-loom' version '1.7-SNAPSHOT'
+    id 'fabric-loom' version '0.12-SNAPSHOT'
 }
 
 version = '1.0.0'
 group = 'com.example.combat'
 
 base {
-	archivesName = 'combat-client'
+    archivesBaseName = 'combat-client'
 }
 
 repositories {
-	mavenCentral()
-}
-
-loom {
-	splitEnvironmentSourceSets()
-
-	mods {
-		"combat-client" {
-			sourceSet sourceSets.main
-			sourceSet sourceSets.client
-		}
-	}
-}
-
-fabricApi {
-	configureDataGeneration()
+    mavenCentral()
 }
 
 dependencies {
-	minecraft "com.mojang:minecraft:1.21.1"
-	mappings "net.fabricmc:yarn:1.21.1+build.3:v2"
-	modImplementation "net.fabricmc:fabric-loader:0.16.5"
-	modImplementation "net.fabricmc.fabric-api:fabric-api:0.102.0+1.21.1"
+    minecraft "com.mojang:minecraft:1.16.5"
+    mappings "net.fabricmc:yarn:1.16.5+build.10:v2"
+    modImplementation "net.fabricmc:fabric-loader:0.14.21"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.46.4+1.16"
 }
 
 java {
-	withSourcesJar()
-	sourceCompatibility = JavaVersion.VERSION_21
-	targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_8
+    targetCompatibility = JavaVersion.VERSION_8
+    withSourcesJar()
 }
 
 jar {
-	inputs.property "version", project.version
-	from("LICENSE") { rename { "${it}_${project.base.archivesName.get()}" } }
+    from("LICENSE") {
+        rename { "${it}_${archivesBaseName}" }
+    }
 }

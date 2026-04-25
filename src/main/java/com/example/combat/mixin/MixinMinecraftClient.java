@@ -9,28 +9,31 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * Перехватывает проверку itemUseCooldown в MinecraftClient.
- * В 1.21.1 метод называется interactItem (intermediary: method_1611).
+ * FastPlace mixin для Fabric 1.16.5.
+ * В 1.16.5 Yarn-маппинги: метод doItemUse → method_1592
+ * Поле itemUseCooldown → field_1740
  */
 @Mixin(MinecraftClient.class)
-public class MixinFastPlace {
+public class MixinMinecraftClient {
 
     @Shadow private int itemUseCooldown;
 
     @Redirect(
-        method = "method_1611",  // intermediary-имя interactItem в 1.21.1
+        method = "method_1592",  // doItemUse в Yarn 1.16.5
         at = @At(
             value = "FIELD",
             target = "Lnet/minecraft/client/MinecraftClient;itemUseCooldown:I",
             opcode = org.objectweb.asm.Opcodes.GETFIELD
         )
     )
-    private int redirectItemUseCooldown(MinecraftClient instance) {
+    private int redirectFastPlace(MinecraftClient instance) {
         if (!FastPlaceModule.enabled) return this.itemUseCooldown;
+
         if (FastPlaceModule.onlyBlocks) {
-            var player = instance.player;
-            if (player == null) return this.itemUseCooldown;
-            if (!(player.getMainHandStack().getItem() instanceof BlockItem)) return this.itemUseCooldown;
+            if (instance.player == null) return this.itemUseCooldown;
+            if (!(instance.player.getMainHandStack().getItem() instanceof BlockItem)) {
+                return this.itemUseCooldown;
+            }
         }
         return FastPlaceModule.cooldown;
     }
