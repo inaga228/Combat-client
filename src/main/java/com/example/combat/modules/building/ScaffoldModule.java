@@ -1,6 +1,7 @@
 package com.example.combat.modules.building;
 
 import net.minecraft.block.BlockState;
+import net.minecraft.block.FallingBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
@@ -22,6 +23,9 @@ public class ScaffoldModule {
     public static boolean legitMovement = true; // только "ванильный" режим без резких движений
 
     private static int ticksSinceLast = 0;
+    private static final Direction[] PLACE_DIRECTIONS = {
+        Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST, Direction.DOWN
+    };
 
     public static void tick(MinecraftClient mc) {
         if (!enabled || mc.player == null || mc.world == null) return;
@@ -38,19 +42,18 @@ public class ScaffoldModule {
             return;
         }
 
-        // Ищем блок в руке
+        // Ищем подходящий блок в хотбаре
         int blockSlot = findBlockSlot(mc);
         if (blockSlot < 0) return;
 
-        // Позиция под игроком
-        BlockPos below = new BlockPos(mc.player.getX(), mc.player.getY() - 1, mc.player.getZ());
+        // Предиктивная позиция (чуть вперед по скорости), чтобы мост строился стабильнее.
+        BlockPos below = getPredictedBelowPos(mc);
 
         // Если блок уже есть — ничего не делаем
         if (!mc.world.getBlockState(below).isAir()) return;
 
         // Ищем опорный блок рядом
-        for (Direction dir : Direction.values()) {
-            if (dir == Direction.UP) continue;
+        for (Direction dir : PLACE_DIRECTIONS) {
             BlockPos neighbor = below.offset(dir);
             BlockState state  = mc.world.getBlockState(neighbor);
             if (state.isAir()) continue;
@@ -74,16 +77,46 @@ public class ScaffoldModule {
         }
     }
 
-    /** Ищет ближайший слот с блоком в хотбаре */
-    private static int findBlockSlot(MinecraftClient mc) {
-        // Сначала текущий
-        ItemStack cur = mc.player.inventory.getStack(mc.player.inventory.selectedSlot);
-        if (cur.getItem() instanceof BlockItem) return mc.player.inventory.selectedSlot;
+    private static BlockPos getPredictedBelowPos(MinecraftClient mc) {
+        Vec3d velocity = mc.player.getVelocity();
+        double predictX = mc.player.getX() + velocity.x * 0.7;
+        double predictZ = mc.player.getZ() + velocity.z * 0.7;
 
-        // Затем весь хотбар
+        BlockPos predicted = new BlockPos(predictX, mc.player.getY() - 1, predictZ);
+        BlockPos current   = new BlockPos(mc.player.getX(), mc.player.getY() - 1, mc.player.getZ());
+
+        // Если предиктивная точка уже занята, работаем от текущей.
+        return mc.world.getBlockState(predicted).isAir() ? predicted : current;
+    }
+
+    /** Ищет лучший слот с блоком в хотбаре */
+    private static int findBlockSlot(MinecraftClient mc) {
+        int selectedSlot = mc.player.inventory.selectedSlot;
+        ItemStack current = mc.player.inventory.getStack(selectedSlot);
+        if (isPlaceableScaffoldBlock(current, mc)) return selectedSlot;
+
+        int bestSlot = -1;
+        int bestCount = -1;
         for (int i = 0; i < 9; i++) {
-            if (mc.player.inventory.getStack(i).getItem() instanceof BlockItem) return i;
+            ItemStack stack = mc.player.inventory.getStack(i);
+            if (!isPlaceableScaffoldBlock(stack, mc)) continue;
+
+            if (stack.getCount() > bestCount) {
+                bestCount = stack.getCount();
+                bestSlot = i;
+            }
         }
-        return -1;
+        return bestSlot;
+    }
+
+    private static boolean isPlaceableScaffoldBlock(ItemStack stack, MinecraftClient mc) {
+        if (stack == null || !(stack.getItem() instanceof BlockItem)) return false;
+        if (stack.getCount() <= 0) return false;
+
+        BlockItem blockItem = (BlockItem) stack.getItem();
+        if (blockItem.getBlock() instanceof FallingBlock) return false;
+
+        BlockState defaultState = blockItem.getBlock().getDefaultState();
+        return defaultState.isFullCube(mc.world, BlockPos.ORIGIN);
     }
 }
