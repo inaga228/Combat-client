@@ -16,6 +16,7 @@ public class OptimizationModule {
     public static boolean disableSky       = true;
     public static boolean disableClouds    = true;
     public static boolean disableFog       = true;
+    public static boolean disableWeather   = false;
     public static boolean renderBoost      = true;
 
     private static ParticlesMode prevParticles = null;

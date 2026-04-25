@@ -1,6 +1,7 @@
 package com.example.combat.mixin;
 
 import com.example.combat.modules.client.OptimizationModule;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,6 +22,18 @@ public class MixinWorldRenderer {
     @Inject(method = "renderClouds", at = @At("HEAD"), cancellable = true)
     private void cancelClouds(MatrixStack matrices, float tickDelta, double cameraX, double cameraY, double cameraZ, CallbackInfo ci) {
         if (OptimizationModule.enabled && OptimizationModule.disableClouds) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "renderWeather", at = @At("HEAD"), cancellable = true)
+    private void cancelWeather(LightmapTextureManager manager,
+                               float tickDelta,
+                               double cameraX,
+                               double cameraY,
+                               double cameraZ,
+                               CallbackInfo ci) {
+        if (OptimizationModule.enabled && OptimizationModule.disableWeather) {
             ci.cancel();
         }
     }
