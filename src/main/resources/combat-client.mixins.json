@@ -3,7 +3,10 @@
   "package": "com.example.combat.mixin",
   "compatibilityLevel": "JAVA_8",
   "client": [
-    "MixinMinecraftClient"
+    "MixinMinecraftClient",
+    "MixinParticleManager",
+    "MixinWorldRenderer",
+    "MixinBackgroundRenderer"
   ],
-  "injectors": { "defaultRequire": 1 }
+  "injectors": { "defaultRequire": 0 }
 }

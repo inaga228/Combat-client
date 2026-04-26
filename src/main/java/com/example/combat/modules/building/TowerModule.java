@@ -17,14 +17,18 @@ public class TowerModule {
 
     public static boolean enabled = false;
     public static int     speed   = 2;   // блоков в секунду (1..5)
+    public static boolean legitMovement = true; // ограниченный режим без "рывков"
+    public static int mode = 0; // 0 = Vanilla, 1 = Jump, 2 = Motion
 
     private static int tickCounter = 0;
 
     public static void tick(MinecraftClient mc) {
         if (!enabled || mc.player == null || mc.world == null) return;
         if (!mc.options.keySneak.isPressed()) return; // держи Shift для активации
+        if (legitMovement && !mc.player.isOnGround()) return;
 
-        int ticksPerBlock = Math.max(1, 20 / speed);
+        int effectiveSpeed = legitMovement ? Math.min(speed, 2) : speed;
+        int ticksPerBlock = Math.max(1, 20 / effectiveSpeed);
         tickCounter++;
         if (tickCounter < ticksPerBlock) return;
         tickCounter = 0;
@@ -45,8 +49,22 @@ public class TowerModule {
         mc.interactionManager.interactBlock(mc.player, mc.world, Hand.MAIN_HAND, hit);
         mc.player.swingHand(Hand.MAIN_HAND);
 
-        // Прыгаем
-        mc.player.jump();
+        // Режимы "как в клиентских tower-модулях"
+        switch (mode) {
+            case 1: // Jump
+                if (mc.player.isOnGround()) mc.player.jump();
+                break;
+            case 2: // Motion
+                if (mc.player.isOnGround()) {
+                    mc.player.setVelocity(mc.player.getVelocity().x, 0.42, mc.player.getVelocity().z);
+                } else if (mc.player.getVelocity().y < -0.08) {
+                    mc.player.setVelocity(mc.player.getVelocity().x, -0.08, mc.player.getVelocity().z);
+                }
+                break;
+            default: // Vanilla
+                mc.player.jump();
+                break;
+        }
 
         mc.player.inventory.selectedSlot = prevSlot;
     }
@@ -58,5 +76,18 @@ public class TowerModule {
             if (mc.player.inventory.getStack(i).getItem() instanceof BlockItem) return i;
         }
         return -1;
+    }
+
+    public static String getModeName() {
+        switch (mode) {
+            case 1: return "Jump";
+            case 2: return "Motion";
+            default: return "Vanilla";
+        }
+    }
+
+    public static void cycleMode(int delta) {
+        int step = delta >= 0 ? 1 : -1;
+        mode = (mode + step + 3) % 3;
     }
 }
