@@ -74,6 +74,7 @@ public class ClickGUI extends Screen {
     @Override
     public void render(MatrixStack ms, int mx, int my, float delta) {
         int neon = getNeonAccent();
+        drawAnimatedBackdrop(ms, neon);
         // Главная панель — левый верх
         int maxListArea = Math.max(120, height - 28 - HDR_H);
         int fullListH = NAMES.length * (MOD_H + PAD) + PAD;
@@ -184,6 +185,9 @@ public class ClickGUI extends Screen {
                 ly = boolRow(ms, x, ly, "Выкл. туман",   OptimizationModule.disableFog);
                 ly = boolRow(ms, x, ly, "Выкл. погоду",  OptimizationModule.disableWeather);
                 ly = boolRow(ms, x, ly, "Буст рендера",  OptimizationModule.renderBoost);
+                ly = boolRow(ms, x, ly, "Выкл. блок-сущности", OptimizationModule.disableBlockEntities);
+                ly = boolRow(ms, x, ly, "Выкл. сущности", OptimizationModule.disableEntities);
+                ly = boolRow(ms, x, ly, "Ultra Low preset", OptimizationModule.ultraLowPreset);
                 ly = bindRow(ms, x, ly, 3);
                 break;
             case 4: // TriggerBot
@@ -278,7 +282,7 @@ public class ClickGUI extends Screen {
             case 0: return 12*13 + 24 + 10;
             case 1: return 12*4 + 24 + 10;
             case 2: return 12*2 + 12 + 24 + 10;
-            case 3: return 12*6 + 24 + 10;
+            case 3: return 12*9 + 24 + 10;
             case 4: return 12 + 12 + 12 + 12 + 12 + 12 + 24 + 10;
             case 5: return 12 + 12 + 12 + 12 + 12 + 12 + 12 + 12 + 24 + 10;
             case 6: return 12 + 12 + 12 + 12 + 24 + 10;
@@ -373,6 +377,9 @@ public class ClickGUI extends Screen {
                 if (hitRow(mx,my,ly)) { OptimizationModule.disableFog       = !OptimizationModule.disableFog;       save(); return true; } ly+=12;
                 if (hitRow(mx,my,ly)) { OptimizationModule.disableWeather   = !OptimizationModule.disableWeather;   save(); return true; } ly+=12;
                 if (hitRow(mx,my,ly)) { OptimizationModule.renderBoost      = !OptimizationModule.renderBoost;      save(); return true; } ly+=12;
+                if (hitRow(mx,my,ly)) { OptimizationModule.disableBlockEntities = !OptimizationModule.disableBlockEntities; save(); return true; } ly+=12;
+                if (hitRow(mx,my,ly)) { OptimizationModule.disableEntities = !OptimizationModule.disableEntities; save(); return true; } ly+=12;
+                if (hitRow(mx,my,ly)) { OptimizationModule.ultraLowPreset = !OptimizationModule.ultraLowPreset; save(); return true; } ly+=12;
                 if (hitBindRow(mx, my, ly)) { bindWaiting = mod; return true; }
                 return false;
             }
@@ -601,6 +608,16 @@ public class ClickGUI extends Screen {
         drawRoundedRect(ms, x + 1, y + 1, w - 2, h - 2, c(120, 8, 8, 16));
         fillGradient(ms, x, y, x + w, y + 14, blend(accentColor, c(200, 30, 25, 48), 0.30f), c(0, 0, 0, 0));
         fill(ms, x + 1, y + 1, x + w - 1, y + 2, blend(accentColor, c(255, 255, 255, 255), 0.10f));
+    }
+
+    private void drawAnimatedBackdrop(MatrixStack ms, int neon) {
+        fillGradient(ms, 0, 0, width, height, c(200, 6, 8, 18), c(200, 8, 10, 22));
+        long t = System.currentTimeMillis();
+        int wave = (int) (Math.sin(t / 450.0) * 30.0);
+        fillGradient(ms, 0, height / 3 + wave, width, height / 3 + 90 + wave, c(40, 255, 255, 255), c(0, 0, 0, 0));
+        fillGradient(ms, 0, (height * 2) / 3 - wave, width, (height * 2) / 3 + 80 - wave, c(30, 180, 140, 255), c(0, 0, 0, 0));
+        int cx = (int) ((t / 12) % (width + 140)) - 140;
+        fillGradient(ms, cx, 0, cx + 140, height, c(22, (neon >> 16) & 255, (neon >> 8) & 255, neon & 255), c(0, 0, 0, 0));
     }
 
     private void drawRoundedRect(MatrixStack ms, int x, int y, int w, int h, int color) {

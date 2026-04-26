@@ -21,7 +21,7 @@ public class MixinParticleManager {
                                  double velocityY,
                                  double velocityZ,
                                  CallbackInfoReturnable<Particle> cir) {
-        if (OptimizationModule.enabled && OptimizationModule.disableParticles) {
+        if (OptimizationModule.enabled && OptimizationModule.shouldDisableParticles()) {
             cir.setReturnValue(null);
         }
     }

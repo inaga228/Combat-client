@@ -14,14 +14,14 @@ public class MixinWorldRenderer {
 
     @Inject(method = "renderSky", at = @At("HEAD"), cancellable = true)
     private void cancelSky(MatrixStack matrices, float tickDelta, CallbackInfo ci) {
-        if (OptimizationModule.enabled && OptimizationModule.disableSky) {
+        if (OptimizationModule.enabled && OptimizationModule.shouldDisableSky()) {
             ci.cancel();
         }
     }
 
     @Inject(method = "renderClouds", at = @At("HEAD"), cancellable = true)
     private void cancelClouds(MatrixStack matrices, float tickDelta, double cameraX, double cameraY, double cameraZ, CallbackInfo ci) {
-        if (OptimizationModule.enabled && OptimizationModule.disableClouds) {
+        if (OptimizationModule.enabled && OptimizationModule.shouldDisableClouds()) {
             ci.cancel();
         }
     }
@@ -33,7 +33,7 @@ public class MixinWorldRenderer {
                                double cameraY,
                                double cameraZ,
                                CallbackInfo ci) {
-        if (OptimizationModule.enabled && OptimizationModule.disableWeather) {
+        if (OptimizationModule.enabled && OptimizationModule.shouldDisableWeather()) {
             ci.cancel();
         }
     }

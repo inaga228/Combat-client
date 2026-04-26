@@ -6,7 +6,9 @@
     "MixinMinecraftClient",
     "MixinParticleManager",
     "MixinWorldRenderer",
-    "MixinBackgroundRenderer"
+    "MixinBackgroundRenderer",
+    "MixinBlockEntityRenderDispatcher",
+    "MixinEntityRenderDispatcher"
   ],
   "injectors": { "defaultRequire": 0 }
 }

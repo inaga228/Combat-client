@@ -69,6 +69,9 @@ public class ModuleConfig {
             optimization.addProperty("disableFog", OptimizationModule.disableFog);
             optimization.addProperty("disableWeather", OptimizationModule.disableWeather);
             optimization.addProperty("renderBoost", OptimizationModule.renderBoost);
+            optimization.addProperty("disableBlockEntities", OptimizationModule.disableBlockEntities);
+            optimization.addProperty("disableEntities", OptimizationModule.disableEntities);
+            optimization.addProperty("ultraLowPreset", OptimizationModule.ultraLowPreset);
             root.add("optimization", optimization);
 
             JsonObject triggerBot = new JsonObject();
@@ -173,6 +176,9 @@ public class ModuleConfig {
                 if (o.has("disableFog")) OptimizationModule.disableFog = o.get("disableFog").getAsBoolean();
                 if (o.has("disableWeather")) OptimizationModule.disableWeather = o.get("disableWeather").getAsBoolean();
                 if (o.has("renderBoost")) OptimizationModule.renderBoost = o.get("renderBoost").getAsBoolean();
+                if (o.has("disableBlockEntities")) OptimizationModule.disableBlockEntities = o.get("disableBlockEntities").getAsBoolean();
+                if (o.has("disableEntities")) OptimizationModule.disableEntities = o.get("disableEntities").getAsBoolean();
+                if (o.has("ultraLowPreset")) OptimizationModule.ultraLowPreset = o.get("ultraLowPreset").getAsBoolean();
             }
 
             if (root.has("triggerBot")) {

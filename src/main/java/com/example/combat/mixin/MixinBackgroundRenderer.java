@@ -17,7 +17,7 @@ public class MixinBackgroundRenderer {
                                   float viewDistance,
                                   boolean thickFog,
                                   CallbackInfo ci) {
-        if (OptimizationModule.enabled && OptimizationModule.disableFog) {
+        if (OptimizationModule.enabled && OptimizationModule.shouldDisableFog()) {
             ci.cancel();
         }
     }
